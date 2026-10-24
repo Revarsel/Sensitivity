@@ -15,7 +15,7 @@ import { Throwables } from '../game/Throwables.js';
 import { Chapter1 } from '../game/Chapter1.js';
 import { Holdout } from '../game/Holdout.js';
 import { TAPES, LORE_ORDER, OBJECTIVES, CHECKPOINTS } from '../game/Lore.js';
-import { loadSettings, saveSettings, loadSave, writeSave, QUALITY } from './Settings.js';
+import { loadSettings, saveSettings, loadSave, writeSave, QUALITY, VOLUME_SCALE } from './Settings.js';
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -129,7 +129,10 @@ export class Game {
     this.pipeline.fx.uBrightness.value = s.brightness;
     this.pipeline.fx.uGrain.value = s.grain ? 0.065 : 0.0;
     this.player.headBob = s.headBob;
-    Object.assign(this.audio.vol, { master: s.master, music: s.music, sfx: s.sfx, amb: s.amb });
+    const V = VOLUME_SCALE;
+    Object.assign(this.audio.vol, { master: s.master * V.master, music: s.music * V.music, sfx: s.sfx * V.sfx, amb: s.amb * V.amb });
+    this.input.binds = { ...s.keybinds };
+    this.ui.refreshKeys(this.input);
     this.audio.applyVolumes();
     const sc = QUALITY[s.quality] ?? 1;
     if (sc !== this.pipeline.scale) { this.pipeline.scale = sc; this.resize(); }
@@ -224,7 +227,7 @@ export class Game {
     if (this.paused) this.ui.show('pause', false);
     if (this.state === 'menu') this.ui.show('menu', false);
     if (this.state === 'end') this.ui.show('end', false);
-    if (name === 'settings') this.ui.renderSettings(this.settings, (k, v) => { this.settings[k] = v; saveSettings(this.settings); this.applySettings(); });
+    if (name === 'settings') this.ui.renderSettings(this.settings, (k, v) => { this.settings[k] = v; saveSettings(this.settings); this.applySettings(); }, this.input);
     if (name === 'evidence') this.ui.renderEvidence(this.lore, (id) => this.playTape(id));
     this.ui.show(name, true);
   }
@@ -260,7 +263,7 @@ export class Game {
     this.proT += dt;
     while (this.proEvents.length && this.proT >= this.proEvents[0][0]) this.proEvents.shift()[1]();
     if (this.proWait) return;
-    if (this.input.down('Space')) this.proSkip += dt; else this.proSkip = Math.max(0, this.proSkip - dt * 2);
+    if (this.input.act('breath')) this.proSkip += dt; else this.proSkip = Math.max(0, this.proSkip - dt * 2);
     this.ui.skipProgress(this.proSkip / 1.2);
     if (this.proSkip > 1.2 || this.proTapeDone) {
       this.proWait = true;
@@ -323,11 +326,11 @@ export class Game {
       return;
     }
     if (this.docOpen) {
-      if (k === 'KeyE') { this.closeDoc(); return; }
-      if (k === 'KeyT') { this.ui.toggleTranscript(); this.audio.play('paper', { gain: 0.4, bus: 'ui' }); }
+      if (this.input.is('interact', k)) { this.closeDoc(); return; }
+      if (this.input.is('transcript', k)) { this.ui.toggleTranscript(); this.audio.play('paper', { gain: 0.4, bus: 'ui' }); }
       return;
     }
-    if (this.state === 'play' && !this.paused && (k === 'Tab' || k === 'KeyJ') && this.player.mode === 'walk') {
+    if (this.state === 'play' && !this.paused && this.input.is('evidence', k) && this.player.mode === 'walk') {
       e.preventDefault();
       this.pause(true);
       this.openSheet('evidence');
@@ -453,14 +456,14 @@ export class Game {
     this.docOpen = false;
     this.ui.closeDoc();
     this.audio.play('paper', { gain: 0.45, bus: 'ui' });
-    if (this.newEvidence) { this.newEvidence = false; this.ui.message('Added to evidence · Tab', 2400); }
+    if (this.newEvidence) { this.newEvidence = false; this.ui.message('Added to evidence · ' + this.input.label('evidence'), 2400); }
   }
 
   playTape(id, onEnd, opts = {}) {
     const t = TAPES[id];
     if (!t) return;
     this.stopTape();
-    if (opts.collect !== false && this.collectLore(id)) this.ui.message('Added to evidence · Tab', 2400);
+    if (opts.collect !== false && this.collectLore(id)) this.ui.message('Added to evidence · ' + this.input.label('evidence'), 2400);
     this.tape = { id, info: t, line: -1, t: 0, next: t.tv ? 0.4 : 1.6, onEnd };
     if (!t.tv) {
       this.audio.play('tape_click', { gain: 0.7, bus: 'ui' });
@@ -609,8 +612,7 @@ export class Game {
     s.t += dt;
     if (s.t > 0.55 && s.canEscape) {
       this.ui.struggle(true, s.p, s.next);
-      const k = s.next === 'A' ? ['KeyA', 'ArrowLeft'] : ['KeyD', 'ArrowRight'];
-      if (k.some((c) => this.input.hit(c))) {
+      if (this.input.actHit(s.next === 'A' ? 'left' : 'right')) {
         s.p += 0.085;
         s.next = s.next === 'A' ? 'D' : 'A';
         this.player.shake = 0.5;
@@ -833,9 +835,9 @@ export class Game {
 
   updatePlayActions(dt) {
     const pl = this.player, input = this.input;
-    if (pl.mode === 'walk' && input.hit('KeyQ')) this.knock();
+    if (pl.mode === 'walk' && input.actHit('knock')) this.knock();
     if (pl.mode === 'hide') {
-      const holding = input.down('Space') && pl.breath > 0;
+      const holding = input.act('breath') && pl.breath > 0;
       if (holding && !pl.breathHeld) this.audio.play('breath_in', { gain: 0.35, rate: 1.2 });
       if (!holding && pl.breathHeld) {
         this.audio.play('breath_out', { gain: pl.breath <= 0.02 ? 0.8 : 0.35, rate: 1.1 });

@@ -1,3 +1,5 @@
+import { defaultBinds, ALIASES, keyLabel } from './Keybinds.js';
+
 // Keyboard + mouse input with pointer lock and per-frame edge detection.
 export class Input {
   constructor(el) {
@@ -10,8 +12,11 @@ export class Input {
     this.enabled = true;
     this.onLockChange = null;
     this.allowUnlockedLook = false;
+    this.binds = defaultBinds();
+    this.capture = null; // fn(code) while rebinding a key
 
     window.addEventListener('keydown', (e) => {
+      if (this.capture) { e.preventDefault(); e.stopImmediatePropagation(); const c = this.capture; this.capture = null; c(e.code); return; }
       if (e.repeat) return;
       const k = e.code;
       if (['Space', 'Tab', 'ArrowUp', 'ArrowDown', 'KeyQ'].includes(k) && this.locked) e.preventDefault();
@@ -55,6 +60,14 @@ export class Input {
     }
   }
   exitLock() { if (document.pointerLockElement) document.exitPointerLock(); }
+
+  // ---- actions (rebindable)
+  codes(a) { return [this.binds[a], ...(ALIASES[a] || [])]; }
+  act(a) { return this.codes(a).some((c) => this.down(c)); }
+  actHit(a) { return this.codes(a).some((c) => this.hit(c)); }
+  actUp(a) { return this.codes(a).some((c) => this.up(c)); }
+  is(a, code) { return this.codes(a).includes(code); }
+  label(a) { return keyLabel(this.binds[a]); }
 
   down(code) { return this.enabled && this.keys.has(code); }
   hit(code) { return this.enabled && this.pressed.has(code); }

@@ -11,9 +11,10 @@ Stack: Three.js r186, Vite 8, plain ES modules, WebGL2, Web Audio. Entry: `index
 | Path | Responsibility |
 |---|---|
 | `src/core/Game.js` | **Central controller.** State machine, main loop, wiring of all systems, menus and pause flow, `sound()`, tapes and docs, hiding, grab and struggle, death, holdout start, fear, FX, render (incl. monitor feed). Largest file. |
-| `src/core/Input.js` | Keyboard and mouse with pointer lock. `down/hit/up(code)`, `mouseDown/Hit/Up(btn)`, `consumeMouse()`, `endFrame()`. |
+| `src/core/Input.js` | Keyboard and mouse with pointer lock. **Use actions, not raw codes:** `act/actHit/actUp(action)`, `is(action, code)`, `label(action)`. Raw `down/hit/up(code)`, mouse helpers, `capture` (rebinding). |
+| `src/core/Keybinds.js` | `ACTIONS` list (id, name, group, default key), `defaultBinds()`, fixed `ALIASES` (arrows etc.), `keyLabel(code)`. Add new rebindable actions here. |
 | `src/core/Collision.js` | `resolveCircle()` (player circle vs AABBs plus door OBBs), `rayBoxes2D()`. |
-| `src/core/Settings.js` | Settings defaults, `QUALITY` scales, localStorage load and save for settings and save game. |
+| `src/core/Settings.js` | Settings defaults (incl. `keybinds`), `QUALITY`, `VOLUME_SCALE` (slider 100% = original mix, e.g. music ×0.8), localStorage (`settings.v2`). |
 | `src/render/SoundField.js` | 25 cm grid over the house. Walls and doors are rasterised in. `compute(x,z,mode)` = 16-neighbour Dijkstra **geodesic distance field** (mode 0 = visual, closed doors block; mode 1 = hearing, closed doors add cost). Cached. `wallsBetween()` for audio occlusion. |
 | `src/render/Pulses.js` | `PulseSystem`: up to `MAX_PULSES=24` active pulses. Each pulse's distance field is written into a half-float DataTexture (rows per slot). `PULSE` colour ids: PLAYER (ice), HUSH (red), WORLD (amber), LIGHT. `createSharedUniforms()`. |
 | `src/render/RevealMaterial.js` | All shaders. `revealMaterial({color, pattern, map, cutout, tint, emissive})` (GLSL3 RawShaderMaterial writing 3 MRT targets). `PAT` procedural patterns (floorboard, wallpaper, tile, fur, blood…). Also `cloneReveal`, `setHighlight`, `dustMaterial`, `glowMaterial`, `glassMaterial` (additive, see-through). |
@@ -95,7 +96,10 @@ States: `dormant` (in chair) → `wander` (hums; picks waypoints biased to distu
 Coordinates: X east, Z south, Y up. House is 17 × 14 m, ceiling 2.7 m, origin at the NW corner. Room bounds are in `House.build()` (`room(...)` calls) and the plan doc. Grid cells are 0.25 m. Keep wall centres and openings on 0.25 m multiples so the sound grid stays watertight.
 
 ## 8. Persistence
-localStorage keys `sensitivity.settings.v1` and `sensitivity.save.v1` (`{cp, lore:[ids], completed}`). All access is wrapped in try/catch.
+localStorage keys `sensitivity.settings.v2` and `sensitivity.save.v1` (`{cp, lore:[ids], completed}`). All access is wrapped in try/catch.
+
+## 8b. Controls and settings UI
+Settings sheet has tabs (General / Controls). `UI.renderControls` lists `ACTIONS` grouped explore/holdout. Clicking a key sets `input.capture`, and a clashing key in the same group is swapped. Static key glyphs use `data-key` / `data-keytext` attributes, refreshed by `UI.refreshKeys(input)` from `Game.applySettings()`. Prompts passing `'E'` are auto-relabelled to the interact key.
 
 ## 9. Testing (no GPU in the cloud sandbox)
 - Run the dev server, then Playwright Chromium with `--use-angle=swiftshader --enable-unsafe-swiftshader --autoplay-policy=no-user-gesture-required`.

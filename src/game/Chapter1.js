@@ -263,9 +263,9 @@ export class Chapter1 {
       this.at(0.9, () => this.slamFront());
       this.at(1.2, () => g.ui.card('Chapter One', 'The House', 4600));
       this.at(6.4, () => g.ui.hint('Every sound you make shows you the world.', 4800, true));
-      this.at(11.5, () => g.ui.hint(K('W A S D', 'Move') + K('Shift', 'Run') + K('Ctrl', 'Creep'), 6500));
+      this.at(11.5, () => { const i = g.input; g.ui.hint(K([i.label('forward'), i.label('left'), i.label('back'), i.label('right')].join(' '), 'Move') + K(i.label('run'), 'Run') + K(i.label('creep'), 'Creep'), 6500); });
       this.at(12.5, () => { if (!this.flags.juneLocked && !this.flags.keyFound) this.setObjective('find_room'); });
-      this.at(19, () => g.ui.hint(K('Q', 'Knock: make a sound on purpose'), 5500));
+      this.at(19, () => g.ui.hint(K(g.input.label('knock'), 'Knock: make a sound on purpose'), 5500));
     } else if (cp === 'awake') {
       this.flags = { seenHush: true, juneNote: true, keyFound: true, awake: true, doorHint: true, knockHint: true };
       this.inv.add('key');
@@ -455,12 +455,12 @@ export class Chapter1 {
     // door hint
     if (!this.flags.doorHint && this.t > 14) {
       const near = H.doors.some((d) => { const c = d.center(); return Math.hypot(c.x - pl.pos.x, c.z - pl.pos.z) < 1.8 && !d.locked; });
-      if (near) { this.flags.doorHint = true; g.ui.hint(K('E', 'Tap: open fast and loud') + K('Hold E', 'Open slowly and quietly'), 6500); }
+      if (near) { this.flags.doorHint = true; g.ui.hint(K(g.input.label('interact'), 'Tap: open fast and loud') + K('Hold ' + g.input.label('interact'), 'Open slowly and quietly'), 6500); }
     }
     // hiding hint
     if (!this.flags.hideHint && this.flags.awake) {
       const near = H.hideSpots.some((s) => Math.hypot(s.x - pl.pos.x, s.z - pl.pos.z) < 2.2);
-      if (near) { this.flags.hideHint = true; g.ui.hint(K('E', 'Hide') + K('Space', 'Hold your breath when he is close'), 6000); }
+      if (near) { this.flags.hideHint = true; g.ui.hint(K(g.input.label('interact'), 'Hide') + K(g.input.label('breath'), 'Hold your breath when he is close'), 6000); }
     }
     // entering June's room after unlocking it
     if (this.flags.juneOpen && !this.flags.inJune && H.roomAt(pl.pos.x, pl.pos.z)?.name === 'June’s room') {

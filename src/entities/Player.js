@@ -78,16 +78,16 @@ export class Player {
     const canMove = this.mode === 'walk';
     let ix = 0, iz = 0;
     if (canMove) {
-      if (input.down('KeyW') || input.down('ArrowUp')) iz -= 1;
-      if (input.down('KeyS') || input.down('ArrowDown')) iz += 1;
-      if (input.down('KeyA') || input.down('ArrowLeft')) ix -= 1;
-      if (input.down('KeyD') || input.down('ArrowRight')) ix += 1;
+      if (input.act('forward')) iz -= 1;
+      if (input.act('back')) iz += 1;
+      if (input.act('left')) ix -= 1;
+      if (input.act('right')) ix += 1;
     }
-    const wantCrouch = canMove && (input.down('ControlLeft') || input.down('KeyC') || input.down('ControlRight'));
+    const wantCrouch = canMove && (input.act('creep') || input.down('KeyC'));
     const moving = ix !== 0 || iz !== 0;
     let state = 'walk';
     if (wantCrouch) state = 'crouch';
-    else if (moving && (input.down('ShiftLeft') || input.down('ShiftRight')) && this.stamina > 0.05 && iz < 0) state = 'sprint';
+    else if (moving && input.act('run') && this.stamina > 0.05 && iz < 0) state = 'sprint';
     this.moveState = state;
 
     // stamina

@@ -1,6 +1,7 @@
 import '../styles/ui.css';
 import { DOCS, TAPES, LORE_ORDER } from '../game/Lore.js';
 import { drawingTexture } from '../world/Textures.js';
+import { ACTIONS, defaultBinds, keyLabel } from '../core/Keybinds.js';
 
 const HEADPHONES = `<svg width="34" height="30" viewBox="0 0 34 30" fill="none" stroke="#d8d1c2" stroke-width="1.2" stroke-linecap="round"><path d="M4 19V16a13 13 0 0 1 26 0v3"/><rect x="2.5" y="18" width="6" height="10" rx="1.5"/><rect x="25.5" y="18" width="6" height="10" rx="1.5"/><path d="M12 22c1.2-1.3 1.2-3.7 0-5M22 22c-1.2-1.3-1.2-3.7 0-5" stroke-opacity=".5"/></svg>`;
 
@@ -79,7 +80,7 @@ export class UI {
 
 <section id="prologue" class="screen">
   <div class="lines" id="pro-lines"></div>
-  <div class="skip">Hold <kbd style="margin:0 10px">Space</kbd> to skip<i><b id="skipbar"></b></i></div>
+  <div class="skip">Hold <kbd style="margin:0 10px" data-key="breath">Space</kbd> to skip<i><b id="skipbar"></b></i></div>
 </section>
 
 <section id="pause" class="screen sheet grain cursor-ring">
@@ -111,7 +112,9 @@ export class UI {
     <span class="label"><span class="dash"></span>Settings</span>
     <h2>Adjust the dark.</h2>
     <button class="text-btn back" data-act="close">Back &middot; Esc</button>
+    <div class="tabs" id="settings-tabs"><button data-tab="general" class="sel">General</button><button data-tab="controls">Controls</button></div>
     <div class="settings-grid" id="settings-grid"></div>
+    <div class="controls-pane" id="controls-pane"></div>
   </div>
 </section>
 
@@ -167,8 +170,8 @@ export class UI {
   <div id="message"></div>
   <div id="subs"><span class="who" id="subs-who"></span><div class="line" id="subs-line"></div></div>
   <div id="noise"><div class="label"><span>Noise</span><b id="noise-state">Quiet</b></div><canvas id="noise-cv" width="340" height="68"></canvas><div class="stam" id="stam"><i id="stam-i"></i></div></div>
-  <div id="breath"><div class="label"><kbd>Space</kbd>Hold your breath</div><div class="bar"><i id="breath-i"></i></div></div>
-  <div id="struggle"><div class="t">Break free</div><div class="keys"><kbd id="k-a">A</kbd><kbd id="k-d">D</kbd></div><div class="bar"><i id="struggle-i"></i></div></div>
+  <div id="breath"><div class="label"><kbd data-key="breath">Space</kbd>Hold your breath</div><div class="bar"><i id="breath-i"></i></div></div>
+  <div id="struggle"><div class="t">Break free</div><div class="keys"><kbd id="k-a" data-key="left">A</kbd><kbd id="k-d" data-key="right">D</kbd></div><div class="bar"><i id="struggle-i"></i></div></div>
   <div id="clock"><div class="time" id="clock-t">3:00<small>AM</small></div><span class="label">Until dawn</span></div>
   <div id="tape"><div id="tape-svg"></div><div class="meta"><span id="tape-title">Tape</span><b id="tape-time">00:00</b></div></div>
 </div>
@@ -187,8 +190,8 @@ export class UI {
     <span class="ch" data-ch="0"><i class="led"></i>1 Hall</span>
     <span class="ch" data-ch="1"><i class="led"></i>2 Living</span>
     <span class="ch" data-ch="2"><i class="led"></i>3 Kitchen</span>
-    <span class="ch talk" id="mon-talk"><i class="led"></i>L &middot; Lullaby</span>
-    <span>Space &middot; Lower</span>
+    <span class="ch talk" id="mon-talk"><i class="led"></i><span data-keytext="lullaby">L</span> &middot; Lullaby</span>
+    <span><span data-keytext="monitor">Space</span> &middot; Lower</span>
   </div>
 </div>
 
@@ -264,7 +267,68 @@ export class UI {
   }
 
   // ------------------------------------------------------------ settings
-  renderSettings(s, onChange) {
+  refreshKeys(input) {
+    this.input = input;
+    this.root.querySelectorAll('[data-key]').forEach((k) => { k.textContent = input.label(k.dataset.key); });
+    this.root.querySelectorAll('[data-keytext]').forEach((k) => { k.textContent = input.label(k.dataset.keytext); });
+  }
+
+  renderControls(s, onChange) {
+    const pane = this.el('controls-pane');
+    const binds = s.keybinds;
+    const group = (g, title) => `<section><span class="label">${title}</span>${ACTIONS.filter((a) => a.group === g).map((a) => `
+      <div class="row bind"><div class="name">${a.name}</div><button class="keybtn" data-act="${a.id}">${keyLabel(binds[a.id])}</button></div>`).join('')}</section>`;
+    pane.innerHTML = `${group('explore', 'Exploring')}${group('holdout', 'Holdout')}
+      <section><span class="label">Fixed</span>
+        <div class="row bind"><div class="name">Look<small>Mouse</small></div></div>
+        <div class="row bind"><div class="name">Throw<small>Left mouse &middot; hold to throw harder</small></div></div>
+        <div class="row bind"><div class="name">Hold door or shutters<small>Left mouse, during the holdout</small></div></div>
+        <div class="row bind"><div class="name">Monitor rooms<small>1 2 3, or Move left / right</small></div></div>
+        <div class="row bind"><div class="name">Pause<small>Esc</small></div></div>
+        <div class="reset"><button class="text-btn" id="binds-reset">Reset to defaults</button></div>
+      </section>`;
+    pane.querySelectorAll('.keybtn').forEach((btn) => btn.addEventListener('click', () => {
+      pane.querySelectorAll('.keybtn.wait').forEach((b) => { b.classList.remove('wait'); b.textContent = keyLabel(binds[b.dataset.act]); });
+      btn.classList.add('wait');
+      btn.textContent = 'Press a key';
+      this.g.audio.play('ui_hover', { bus: 'ui' });
+      this.input.capture = (code) => {
+        btn.classList.remove('wait');
+        if (code !== 'Escape') {
+          const id = btn.dataset.act;
+          const act = ACTIONS.find((a) => a.id === id);
+          const next = { ...binds };
+          // swap with any action in the same group that already uses this key
+          const clash = ACTIONS.find((a) => a.id !== id && a.group === act.group && next[a.id] === code);
+          if (clash) next[clash.id] = next[id];
+          next[id] = code;
+          this.g.audio.play('ui_select', { bus: 'ui' });
+          onChange('keybinds', next);
+        }
+        this.renderControls(this.g.settings, onChange);
+      };
+    }));
+    pane.querySelector('#binds-reset').addEventListener('click', () => {
+      this.g.audio.play('ui_back', { bus: 'ui' });
+      onChange('keybinds', defaultBinds());
+      this.renderControls(this.g.settings, onChange);
+    });
+  }
+
+  renderSettings(s, onChange, input) {
+    if (input) this.input = input;
+    const tabs = this.el('settings-tabs');
+    const setTab = (t) => {
+      tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('sel', b.dataset.tab === t));
+      this.el('settings-grid').style.display = t === 'general' ? '' : 'none';
+      this.el('controls-pane').style.display = t === 'controls' ? '' : 'none';
+    };
+    if (!tabs.dataset.bound) {
+      tabs.dataset.bound = '1';
+      tabs.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { this.g.audio.play('ui_hover', { bus: 'ui' }); if (this.input) this.input.capture = null; setTab(b.dataset.tab); }));
+    }
+    setTab('general');
+    this.renderControls(s, onChange);
     const grid = this.el('settings-grid');
     const slider = (key, name, min, max, step, fmt, sub = '') => `
       <div class="row"><div class="name">${name}${sub ? `<small>${sub}</small>` : ''}</div>
@@ -294,13 +358,7 @@ export class UI {
         ${slider('music', 'Music', 0, 1, 0.01, pct)}
         <span class="label">Accessibility</span>
         ${choice('subtitles', 'Subtitles', [[true, 'On'], [false, 'Off']])}
-        <span class="label">Controls</span>
-        <div class="keys-legend">
-          <div><kbd>WASD</kbd>Move</div><div><kbd>Shift</kbd>Run</div>
-          <div><kbd>Ctrl</kbd>Creep (or C)</div><div><kbd>Q</kbd>Knock</div>
-          <div><kbd>E</kbd>Interact &middot; hold</div><div><kbd>Mouse</kbd>Throw</div>
-          <div><kbd>Space</kbd>Hold breath</div><div><kbd>Tab</kbd>Evidence</div>
-        </div>
+
       </section>`;
     grid.querySelectorAll('input.slider').forEach((inp) => {
       const upd = () => {
@@ -399,6 +457,8 @@ export class UI {
   tapeOnly(on) { this.el('hud').classList.toggle('tapeonly', on); }
   tapeFloat(on) { this.el('hud').classList.toggle('tapefloat', on); }
   setPrompt(key, text, alt) {
+    if (key === 'E' && this.input) key = this.input.label('interact');
+    if (alt && this.input) alt = alt.replace('<kbd>Hold</kbd>', '<kbd>Hold ' + this.input.label('interact') + '</kbd>');
     const p = this.el('prompt');
     if (!text) { p.classList.remove('on'); this.el('crosshair').classList.remove('active'); this._prompt = null; return; }
     const sig = key + text + (alt || '');

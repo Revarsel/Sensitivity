@@ -150,12 +150,12 @@ export class Holdout {
     g.ui.clock(true, 3 + hour, mins);
 
     // ---- monitor
-    if (input.hit('Space') || input.hit('Tab')) this.toggleMonitor();
+    if (input.actHit('monitor')) this.toggleMonitor();
     if (this.monitorUp) {
       for (let i = 0; i < 3; i++) if (input.hit('Digit' + (i + 1))) this.setChannel(i);
-      if (input.hit('KeyA') || input.hit('ArrowLeft')) this.setChannel((this.channel + 2) % 3);
-      if (input.hit('KeyD') || input.hit('ArrowRight')) this.setChannel((this.channel + 1) % 3);
-      if (input.hit('KeyL') || input.hit('KeyF')) this.playLullaby();
+      if (input.actHit('left')) this.setChannel((this.channel + 2) % 3);
+      if (input.actHit('right')) this.setChannel((this.channel + 1) % 3);
+      if (input.actHit('lullaby')) this.playLullaby();
       this.battery = Math.max(0, this.battery - dt * 0.5);
       if (this.battery <= 0 && !this.flatNotified) { this.flatNotified = true; g.audio.play('blip', { bus: 'ui', rate: 0.5 }); }
       // interference when he is close to the camera
@@ -191,7 +191,7 @@ export class Holdout {
       else if (this.holding === 'window') g.ui.setPrompt('Mouse', 'Holding the shutters');
       else if (dYaw(this.doorYaw) < 0.55) g.ui.setPrompt('Hold mouse', 'Hold the door shut');
       else if (dYaw(this.windowYaw) < 0.55) g.ui.setPrompt('Hold mouse', 'Hold the shutters closed');
-      else g.ui.setPrompt('Space', 'Raise the baby monitor');
+      else g.ui.setPrompt(input.label('monitor'), 'Raise the baby monitor');
     } else g.ui.setPrompt(null);
 
     // door shake visual

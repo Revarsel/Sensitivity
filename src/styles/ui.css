@@ -772,3 +772,27 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 .keys-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; padding: 16px 0 8px; }
 .keys-legend div { display: flex; align-items: center; font-family: var(--serif); font-size: 16px; color: var(--bone-dim); }
 .keys-legend kbd { min-width: 44px; }
+
+/* settings tabs + controls */
+.tabs { display: flex; gap: 34px; margin: -14px 0 26px; border-bottom: 1px solid rgba(216, 209, 194, 0.1); }
+.tabs button {
+  all: unset; cursor: inherit; padding: 0 0 12px; margin-bottom: -1px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--ash); border-bottom: 1px solid transparent; transition: color 0.25s, border-color 0.25s;
+}
+.tabs button:hover { color: var(--bone-dim); }
+.tabs button.sel { color: var(--bone); border-bottom-color: var(--blood); }
+.controls-pane { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 56px; overflow-y: auto; padding-right: 8px; }
+.controls-pane .label { display: block; padding: 14px 0 6px; }
+.row.bind { grid-template-columns: 1fr auto; min-height: 46px; }
+.keybtn {
+  all: unset; cursor: inherit; min-width: 64px; height: 26px; padding: 0 10px; text-align: center;
+  border: 1px solid rgba(216, 209, 194, 0.42); border-bottom-width: 2px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--bone);
+  background: rgba(5, 6, 8, 0.55); transition: border-color 0.2s, color 0.2s;
+}
+.keybtn:hover { border-color: var(--bone); }
+.keybtn.wait { border-color: var(--blood); color: var(--blood); animation: breathe 1.2s ease-in-out infinite; }
+.controls-pane .reset { padding-top: 22px; }
+@media (max-width: 1000px) { .controls-pane { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 680px) { .controls-pane { grid-template-columns: 1fr; } }

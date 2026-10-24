@@ -96,8 +96,8 @@ export class Interactions {
     // ---- doors: tap = fast & loud, hold = slow & quiet
     if (it.door) {
       const d = it.door;
-      if (input.hit('KeyE')) { this.holdT = 0; this.doorPressed = true; }
-      if (this.doorPressed && input.down('KeyE')) {
+      if (input.actHit('interact')) { this.holdT = 0; this.doorPressed = true; }
+      if (this.doorPressed && input.act('interact')) {
         this.holdT += dt;
         if (this.holdT > 0.22 && !this.doorHold && !d.locked) {
           this.doorHold = { door: d, open: d.isClosed || d.target < d.maxOpen * 0.5, t: 0 };
@@ -115,7 +115,7 @@ export class Interactions {
         }
         g.ui.setHold(Math.min(1, this.holdT / 0.22));
       }
-      if (this.doorPressed && input.up('KeyE')) {
+      if (this.doorPressed && input.actUp('interact')) {
         this.doorPressed = false;
         g.ui.setHold(0);
         if (this.doorHold) { this.endDoorHold(); }
@@ -130,15 +130,15 @@ export class Interactions {
 
     // ---- hold-to-use items (drawers)
     if (it.hold) {
-      if (input.down('KeyE')) {
-        if (input.hit('KeyE') && it.onHoldStart) it.onHoldStart();
+      if (input.act('interact')) {
+        if (input.actHit('interact') && it.onHoldStart) it.onHoldStart();
         this.holdT += dt;
         g.ui.setHold(this.holdT / it.hold);
         if (this.holdT >= it.hold) { this.holdT = 0; g.ui.setHold(0); it.use(); }
       } else if (this.holdT > 0) { this.holdT = 0; g.ui.setHold(0); }
       return;
     }
-    if (input.hit('KeyE')) it.use();
+    if (input.actHit('interact')) it.use();
   }
 
   setCurrent(it) {
