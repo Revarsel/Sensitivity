@@ -2,7 +2,7 @@
 
 ## Do NOT read the whole codebase
 
-The codebase is about 8,000 lines. Reading all of it wastes the owner's credits.
+The codebase is about 8,300 lines of JS plus CSS. Reading all of it wastes the owner's credits.
 
 1. Start with **`docs/ARCHITECTURE.md`**. It maps every file, system, key function and convention.
 2. Use it to find the **one or two files** a task touches. Open only those, and only the relevant parts (use Grep or line ranges).
@@ -30,7 +30,12 @@ npm run build    # must pass before committing
 - Any noise goes through `game.sound({...})`. It makes the visual pulse **and** is what Mr. Hush hears. Set `source` correctly (`player`, `object`, `hush`, `world`).
 - World meshes must use `revealMaterial()` (custom MRT shader), never standard Three.js materials, or they won't render.
 - UI: no emoji, no glass or blur panels, no rounded app buttons. Use the CSS tokens and fonts in `src/styles/main.css`. Keep the dark analog-horror look.
+- Input: never check raw key codes for gameplay. Use `input.act/actHit/actUp('action')`. New rebindable keys go in `ACTIONS` in `src/core/Keybinds.js`. Avoid Ctrl as a default (Ctrl+W closes the browser tab).
 - Commit messages must not contain model names.
+
+## Git workflow
+
+Develop on the branch the session gives you. When the owner asks, push to `main` as well (`git push origin <branch>:main`). `npm run build` must pass first.
 
 ## Testing without a GPU (cloud sandbox)
 

@@ -101,6 +101,12 @@ localStorage keys `sensitivity.settings.v2` and `sensitivity.save.v1` (`{cp, lor
 ## 8b. Controls and settings UI
 Settings sheet has tabs (General / Controls). `UI.renderControls` lists `ACTIONS` grouped explore/holdout. Clicking a key sets `input.capture`, and a clashing key in the same group is swapped. Static key glyphs use `data-bind` / `data-keytext` attributes, refreshed by `UI.refreshKeys(input)` from `Game.applySettings()`. Prompts passing `'E'` are auto-relabelled to the interact key.
 
+## 8c. Small but deliberate decisions
+- **Creep defaults to C, not Ctrl**, because browsers can't block Ctrl+W (close tab). `Settings.loadSettings()` migrates old saves from `ControlLeft` to `KeyC`. There's no Ctrl alias.
+- **Leave guard:** `Game` constructor adds a `beforeunload` handler that asks before closing the tab during play, holdout or cutscene (disabled with `?dev`).
+- **Scrollbars:** themed globally at the end of `ui.css` (thin, faint, red on hover). Don't add per-panel browser-default scrollbars.
+- **Volume:** sliders default to 100%. `VOLUME_SCALE` maps 100% to the original mix.
+
 ## 9. Testing (no GPU in the cloud sandbox)
 - Run the dev server, then Playwright Chromium with `--use-angle=swiftshader --enable-unsafe-swiftshader --autoplay-policy=no-user-gesture-required`.
 - Open `http://localhost:5173/?dev&manual`. `dev` exposes `window.__game` and skips the pointer-lock requirement. `manual` disables the rAF loop.
@@ -111,4 +117,5 @@ Settings sheet has tabs (General / Controls). `UI.renderControls` lists `ACTIONS
 ## 10. Known gaps / ideas
 - No voice acting (tapes use subtitles and hiss). No microphone input. Chapter 2 (St. Agnes, flooded hospital) is not started.
 - Real-GPU performance and the audio mix have not been verified by a human yet.
+- **Desktop .exe (planned, not started):** the recommended route is Electron plus electron-builder loading `dist/index.html` (Vite `base: './'` already supports this). Disable menu accelerators there so Ctrl+W is safe, then build with `electron-builder --win` (nsis or portable). Tauri is the lighter alternative.
 - `Game.js` is large. If it grows further, split it into `GameFlow` (menus and states) and `PlaySystems` (hiding, struggle, fear).

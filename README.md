@@ -32,6 +32,8 @@ Use a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari 16+). Headpho
 | Tab | Evidence (documents and tapes you've found) |
 | A / D, mashed | Break free when grabbed |
 
+All keys can be rebound in **Settings → Controls**.
+
 **Holdout (3:00 AM to 6:00 AM):** Space raises the baby monitor. 1, 2 and 3 switch rooms. L plays a lullaby through that room's speaker to lure him there. Look at the door or window and **hold the mouse button** to hold it shut.
 
 ## The story so far
