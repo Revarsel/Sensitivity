@@ -99,7 +99,7 @@ Coordinates: X east, Z south, Y up. House is 17 × 14 m, ceiling 2.7 m, origin a
 localStorage keys `sensitivity.settings.v2` and `sensitivity.save.v1` (`{cp, lore:[ids], completed}`). All access is wrapped in try/catch.
 
 ## 8b. Controls and settings UI
-Settings sheet has tabs (General / Controls). `UI.renderControls` lists `ACTIONS` grouped explore/holdout. Clicking a key sets `input.capture`, and a clashing key in the same group is swapped. Static key glyphs use `data-key` / `data-keytext` attributes, refreshed by `UI.refreshKeys(input)` from `Game.applySettings()`. Prompts passing `'E'` are auto-relabelled to the interact key.
+Settings sheet has tabs (General / Controls). `UI.renderControls` lists `ACTIONS` grouped explore/holdout. Clicking a key sets `input.capture`, and a clashing key in the same group is swapped. Static key glyphs use `data-bind` / `data-keytext` attributes, refreshed by `UI.refreshKeys(input)` from `Game.applySettings()`. Prompts passing `'E'` are auto-relabelled to the interact key.
 
 ## 9. Testing (no GPU in the cloud sandbox)
 - Run the dev server, then Playwright Chromium with `--use-angle=swiftshader --enable-unsafe-swiftshader --autoplay-policy=no-user-gesture-required`.

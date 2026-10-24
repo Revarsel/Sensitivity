@@ -80,7 +80,7 @@ export class UI {
 
 <section id="prologue" class="screen">
   <div class="lines" id="pro-lines"></div>
-  <div class="skip">Hold <kbd style="margin:0 10px" data-key="breath">Space</kbd> to skip<i><b id="skipbar"></b></i></div>
+  <div class="skip">Hold <kbd style="margin:0 10px" data-bind="breath">Space</kbd> to skip<i><b id="skipbar"></b></i></div>
 </section>
 
 <section id="pause" class="screen sheet grain cursor-ring">
@@ -170,8 +170,8 @@ export class UI {
   <div id="message"></div>
   <div id="subs"><span class="who" id="subs-who"></span><div class="line" id="subs-line"></div></div>
   <div id="noise"><div class="label"><span>Noise</span><b id="noise-state">Quiet</b></div><canvas id="noise-cv" width="340" height="68"></canvas><div class="stam" id="stam"><i id="stam-i"></i></div></div>
-  <div id="breath"><div class="label"><kbd data-key="breath">Space</kbd>Hold your breath</div><div class="bar"><i id="breath-i"></i></div></div>
-  <div id="struggle"><div class="t">Break free</div><div class="keys"><kbd id="k-a" data-key="left">A</kbd><kbd id="k-d" data-key="right">D</kbd></div><div class="bar"><i id="struggle-i"></i></div></div>
+  <div id="breath"><div class="label"><kbd data-bind="breath">Space</kbd>Hold your breath</div><div class="bar"><i id="breath-i"></i></div></div>
+  <div id="struggle"><div class="t">Break free</div><div class="keys"><kbd id="k-a" data-bind="left">A</kbd><kbd id="k-d" data-bind="right">D</kbd></div><div class="bar"><i id="struggle-i"></i></div></div>
   <div id="clock"><div class="time" id="clock-t">3:00<small>AM</small></div><span class="label">Until dawn</span></div>
   <div id="tape"><div id="tape-svg"></div><div class="meta"><span id="tape-title">Tape</span><b id="tape-time">00:00</b></div></div>
 </div>
@@ -269,7 +269,7 @@ export class UI {
   // ------------------------------------------------------------ settings
   refreshKeys(input) {
     this.input = input;
-    this.root.querySelectorAll('[data-key]').forEach((k) => { k.textContent = input.label(k.dataset.key); });
+    this.root.querySelectorAll('[data-bind]').forEach((k) => { k.textContent = input.label(k.dataset.bind); });
     this.root.querySelectorAll('[data-keytext]').forEach((k) => { k.textContent = input.label(k.dataset.keytext); });
   }
 
