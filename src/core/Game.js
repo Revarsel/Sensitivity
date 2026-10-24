@@ -99,6 +99,10 @@ export class Game {
     this.resize();
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('keydown', (e) => this.onKey(e));
+    // safety net: ask before closing the tab mid-game (e.g. Ctrl+W)
+    window.addEventListener('beforeunload', (e) => {
+      if (!this.dev && ['play', 'holdout', 'cutscene'].includes(this.state)) { e.preventDefault(); e.returnValue = ''; }
+    });
     window.addEventListener('mousemove', (e) => this.onMenuMouse(e));
     window.addEventListener('wheel', (e) => { if (this.docOpen) this.ui.scrollDoc(e.deltaY); }, { passive: true });
     this.timer = new THREE.Timer();

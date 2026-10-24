@@ -796,3 +796,11 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 .controls-pane .reset { padding-top: 22px; }
 @media (max-width: 1000px) { .controls-pane { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 680px) { .controls-pane { grid-template-columns: 1fr; } }
+
+/* themed scrollbars */
+* { scrollbar-width: thin; scrollbar-color: rgba(216, 209, 194, 0.22) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(216, 209, 194, 0.18); border: none; }
+::-webkit-scrollbar-thumb:hover { background: rgba(179, 38, 30, 0.7); }
+::-webkit-scrollbar-corner { background: transparent; }

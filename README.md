@@ -23,7 +23,7 @@ Use a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari 16+). Headpho
 |---|---|
 | W A S D | Move |
 | Shift | Run (loud, drains stamina) |
-| Ctrl or C | Creep (quiet) |
+| C | Creep (quiet). Not Ctrl: Ctrl+W would close the tab |
 | Mouse | Look |
 | Q | Knock: make a sound on purpose to see |
 | E | Interact. On doors: **tap** to open fast and loud, **hold** to open slowly and quietly |

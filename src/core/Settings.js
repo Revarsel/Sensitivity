@@ -27,7 +27,11 @@ export const QUALITY = { low: 0.6, medium: 0.8, high: 1.0 };
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { const s = JSON.parse(raw); return { ...DEFAULTS, ...s, keybinds: { ...defaultBinds(), ...(s.keybinds || {}) } }; }
+    if (raw) {
+      const s = JSON.parse(raw);
+      // Ctrl+W closes the browser tab, so creep moved off Ctrl
+      if (s.keybinds && s.keybinds.creep === 'ControlLeft') s.keybinds.creep = 'KeyC';
+      return { ...DEFAULTS, ...s, keybinds: { ...defaultBinds(), ...(s.keybinds || {}) } }; }
   } catch (e) { /* storage unavailable */ }
   return { ...DEFAULTS, keybinds: defaultBinds() };
 }

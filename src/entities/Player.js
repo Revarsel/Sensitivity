@@ -83,7 +83,7 @@ export class Player {
       if (input.act('left')) ix -= 1;
       if (input.act('right')) ix += 1;
     }
-    const wantCrouch = canMove && (input.act('creep') || input.down('KeyC'));
+    const wantCrouch = canMove && input.act('creep');
     const moving = ix !== 0 || iz !== 0;
     let state = 'walk';
     if (wantCrouch) state = 'crouch';

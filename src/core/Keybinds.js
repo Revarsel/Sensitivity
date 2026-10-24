@@ -6,7 +6,7 @@ export const ACTIONS = [
   { id: 'left', name: 'Move left', group: 'explore', def: 'KeyA' },
   { id: 'right', name: 'Move right', group: 'explore', def: 'KeyD' },
   { id: 'run', name: 'Run', group: 'explore', def: 'ShiftLeft' },
-  { id: 'creep', name: 'Creep', group: 'explore', def: 'ControlLeft' },
+  { id: 'creep', name: 'Creep', group: 'explore', def: 'KeyC' },
   { id: 'knock', name: 'Knock', group: 'explore', def: 'KeyQ' },
   { id: 'interact', name: 'Interact', group: 'explore', def: 'KeyE' },
   { id: 'breath', name: 'Hold breath / skip', group: 'explore', def: 'Space' },
@@ -25,7 +25,7 @@ export function defaultBinds() {
 // Fixed secondary keys that always work alongside the binding.
 export const ALIASES = {
   forward: ['ArrowUp'], back: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'],
-  run: ['ShiftRight'], creep: ['ControlRight'], evidence: ['KeyJ'],
+  run: ['ShiftRight'], evidence: ['KeyJ'],
 };
 
 export function keyLabel(code) {
