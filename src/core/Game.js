@@ -222,6 +222,8 @@ export class Game {
   openSheet(name) {
     this.sheet = name;
     if (this.paused) this.ui.show('pause', false);
+    if (this.state === 'menu') this.ui.show('menu', false);
+    if (this.state === 'end') this.ui.show('end', false);
     if (name === 'settings') this.ui.renderSettings(this.settings, (k, v) => { this.settings[k] = v; saveSettings(this.settings); this.applySettings(); });
     if (name === 'evidence') this.ui.renderEvidence(this.lore, (id) => this.playTape(id));
     this.ui.show(name, true);
@@ -230,7 +232,8 @@ export class Game {
     if (!this.sheet) return;
     this.ui.show(this.sheet, false);
     this.sheet = null;
-    if (this.state === 'menu') this.ui.setMenuState(this.menuInfo());
+    if (this.state === 'menu') { this.ui.setMenuState(this.menuInfo()); this.ui.show('menu', true); }
+    if (this.state === 'end') this.ui.show('end', true);
     if (this.paused) this.ui.show('pause', true);
   }
 
@@ -466,6 +469,8 @@ export class Game {
       this.tapeJingle = this.audio.musicBox({ gain: 0.22, tempo: 96, loops: 1, radio: true, pos: this.house.tvScreen, bus: 'sfx' });
     }
     this.ui.tape(true, t);
+    // replaying from the evidence screen: keep the tape visible above menus
+    this.ui.tapeFloat(this.state === 'menu' || this.state === 'end' || this.paused);
   }
   stopTape() {
     if (!this.tape) return;
@@ -474,6 +479,7 @@ export class Game {
     if (this.tapeJingle) { this.tapeJingle.stop(0.3); this.tapeJingle = null; }
     this.ui.tape(false);
     this.ui.subs(null);
+    this.ui.tapeFloat(false);
   }
   updateTape(dt) {
     const tp = this.tape;

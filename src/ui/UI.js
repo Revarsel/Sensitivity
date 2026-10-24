@@ -397,6 +397,7 @@ export class UI {
   hud(on) { this.show('hud', on); }
   hudDim(on) { this.el('hud').classList.toggle('dim', on); }
   tapeOnly(on) { this.el('hud').classList.toggle('tapeonly', on); }
+  tapeFloat(on) { this.el('hud').classList.toggle('tapefloat', on); }
   setPrompt(key, text, alt) {
     const p = this.el('prompt');
     if (!text) { p.classList.remove('on'); this.el('crosshair').classList.remove('active'); this._prompt = null; return; }
