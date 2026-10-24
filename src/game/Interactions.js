@@ -66,6 +66,7 @@ export class Interactions {
       const it = this.list.find((i) => i.id === 'hide:' + pl.hidden.id);
       this.setCurrent(it || null);
     } else {
+      cam.updateMatrixWorld();
       this.ray.setFromCamera(this.center, cam);
       const objs = [];
       for (const it of this.list) if (it.enabled() && it.obj.visible !== false) objs.push(it.obj);

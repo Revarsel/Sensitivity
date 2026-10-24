@@ -403,7 +403,7 @@ export class HushVoice {
   setLevel(v, tc = 0.25) {
     if (!this.active) return;
     this.level = v;
-    this.n.out.gain.setTargetAtTime(v * 0.22, this.a.ctx.currentTime, tc);
+    this.n.out.gain.setTargetAtTime(v * 0.36, this.a.ctx.currentTime, tc);
   }
   // sudden stop when he hears something
   cut() { if (this.active) this.n.out.gain.setTargetAtTime(0, this.a.ctx.currentTime, 0.03); this.level = 0; }

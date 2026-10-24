@@ -249,7 +249,7 @@ kbd {
   grid-template-columns: 1fr minmax(160px, 240px) 52px;
   align-items: center;
   gap: 18px;
-  min-height: 56px;
+  min-height: 50px;
   border-bottom: 1px solid rgba(216, 209, 194, 0.08);
 }
 .row .name { font-family: var(--serif); font-size: 20px; color: var(--bone); }

@@ -74,6 +74,8 @@ export class Holdout {
     this.nightlight = 0;
 
     const pl = g.player;
+    g.throwables.dropHeld();
+    pl.hidden = null;
     pl.teleport(this.seat.x, this.seat.z, (this.doorYaw + this.windowYaw) / 2 + Math.PI, -0.1);
     pl.mode = 'seated';
     pl.fixedEyeY = this.seat.y;

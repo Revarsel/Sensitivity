@@ -66,12 +66,16 @@ void main() {
 
   vec3 col = c.rgb;
   col += edge * rm.rgb * uEdgeGain;
-  // interactable highlight: soft amber outline that breathes
+  // interactable highlight: soft amber outline that breathes. The outline comes
+  // from geometry edges and from the boundary of the highlight mask itself, so
+  // flat things (a card on a table) still read.
   float hl = rm.a;
+  float hmin = min(min(min(r0.a, r1.a), min(r2.a, r3.a)), r4.a);
+  float maskEdge = clamp((hl - hmin) * 1.6, 0.0, 1.0);
   float breathe = 0.55 + 0.45 * sin(uTime * 2.6);
-  col += edge * hl * uHighlightColor * breathe;
+  col += (max(edge * hl, maskEdge) * 1.25 + r0.a * 0.04) * uHighlightColor * breathe;
   col += c.rgb * 0.0;
-  gl_FragColor = vec4(col + rm.a * uHighlightColor * 0.012 * breathe, 1.0);
+  gl_FragColor = vec4(col, 1.0);
 }
 `;
 
