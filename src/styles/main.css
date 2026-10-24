@@ -1,0 +1,45 @@
+:root {
+  --void: #050608;
+  --ink: #0b0c0f;
+  --bone: #d8d1c2;
+  --bone-dim: #8f897d;
+  --ash: #4a4842;
+  --oxblood: #8e1b16;
+  --blood: #b3261e;
+  --ice: #cfe1ff;
+  --amber: #ffb35c;
+  --paper: #ddd3bd;
+  --serif: 'IM Fell English', 'Iowan Old Style', Georgia, serif;
+  --serif-sc: 'IM Fell English SC', 'IM Fell English', Georgia, serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  --type: 'Special Elite', 'Courier New', monospace;
+  --hand-child: 'Reenie Beanie', cursive;
+  --hand-adult: 'Homemade Apple', cursive;
+  --osd: 'VT323', monospace;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--void);
+  color: var(--bone);
+  font-family: var(--serif);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+#view {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  background: var(--void);
+}
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
