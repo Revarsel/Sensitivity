@@ -28,7 +28,7 @@ Use a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari 16+). Headpho
 | Q | Knock: make a sound on purpose to see |
 | E | Interact. On doors: **tap** to open fast and loud, **hold** to open slowly and quietly |
 | Left mouse | Throw a held bottle or block. Hold to throw harder |
-| Space | Hold your breath while hiding |
+| Space | Hold your breath. When he's close he can hear you breathing |
 | Tab | Evidence (documents and tapes you've found) |
 | A / D, mashed | Break free when grabbed |
 

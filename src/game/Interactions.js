@@ -110,14 +110,14 @@ export class Interactions {
           this.doorHold = { door: d, open: d.isClosed || d.target < d.maxOpen * 0.5, t: 0 };
           d.setTarget(this.doorHold.open, 0.55, pl.pos.x, pl.pos.z);
           g.audio.play('door_creak_slow', { pos: { x: d.hinge.x, y: 1.2, z: d.hinge.y }, gain: 0.35 });
-          g.sound({ x: d.center().x, z: d.center().z, y: 1, radius: 1.8, strength: 0.7, source: 'player', kind: 'door' });
+          g.sound({ x: d.center().x, z: d.center().z, y: 1, soft: true, radius: 2.3, strength: 0.7, source: 'player', kind: 'door' });
         }
         if (this.doorHold) {
           this.doorHold.t += dt;
           if (this.doorHold.t > 1.4) {
             this.doorHold.t = 0;
             g.audio.play('door_creak_slow', { pos: { x: d.hinge.x, y: 1.2, z: d.hinge.y }, gain: 0.3 });
-            g.sound({ x: d.center().x, z: d.center().z, y: 1, radius: 1.8, strength: 0.6, source: 'player', kind: 'door' });
+            g.sound({ x: d.center().x, z: d.center().z, y: 1, soft: true, radius: 2.3, strength: 0.6, source: 'player', kind: 'door' });
           }
         }
         g.ui.setHold(Math.min(1, this.holdT / 0.22));

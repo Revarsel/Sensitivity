@@ -44,6 +44,8 @@ export class MrHush {
     this.visibleGlint = 0;
     this.escapes = 0;
     this.wakeable = true; // a loud enough noise wakes him from the chair
+    this.menace = 0;      // rises while he's away from the player; pulls him toward them
+    this.smellT = 0;      // time the player has spent silently right next to him
     this.placeDormant();
   }
 
@@ -63,6 +65,7 @@ export class MrHush {
     this.state = s;
     this.stateTime = 0;
     this.timer = info.timer ?? 0;
+    if (s === 'hunt') this.menace = 0;
     if (s === 'hunt' && prev !== 'hunt') {
       this.g.audio.play('hush_growl', { pos: this.headPos, gain: 1.0, reverb: 0.3, ref: 2 });
       this.g.emit('hushHunt', this);
@@ -128,7 +131,9 @@ export class MrHush {
 
     const alert = this.state === 'hunt' || this.state === 'investigate' || this.state === 'search' || this.state === 'check';
     if (fromPlayer) {
-      if (intensity > 0.42 || (alert && intensity > 0.12) || this.state === 'hunt') {
+      // soft sounds (creeping, breathing, slow doors) only make him curious unless you're right on top of him
+      const huntAt = o.soft ? 0.75 : 0.42;
+      if (intensity > huntAt || (alert && !o.soft && intensity > 0.12) || this.state === 'hunt') {
         this.goTo(o.x, o.z, 'hunt');
       } else {
         this.goTo(o.x, o.z, 'investigate');
@@ -161,15 +166,27 @@ export class MrHush {
     const pr = g.house.roomAt(g.player.pos.x, g.player.pos.z);
     const unlockedJune = !g.house.doorJune.locked;
     const options = WAYPOINTS.filter((w) => w.room !== 'June’s room' || unlockedJune);
-    const sinceNear = now - this.lastPlayerNear;
+    const pl = g.player;
     if (fresh.length && Math.random() < 0.55) {
       const d = fresh[fresh.length - 1]; d.visited = true; wp = d;
-    } else if (pr && (Math.random() < 0.38 || sinceNear > 40)) {
-      // the menace: drift toward where the player is, but not exactly
-      const near = options.filter((w) => w.room === pr.name);
+    } else if (this.menace > 0.85 && pr) {
+      // he has been away too long: he comes looking, close to where you are, but not exactly
+      // still humming, still walking: you get a warning and a chance to move
+      const a = Math.random() * Math.PI * 2, r = 2.5 + Math.random() * 2;
+      const tgt = g.nav.nearestFree(pl.pos.x + Math.cos(a) * r, pl.pos.z + Math.sin(a) * r, 8);
+      this.menace = 0.3;
+      if (tgt) {
+        const [cx, cz] = g.nav.center(tgt[0], tgt[1]);
+        this.path = g.nav.find(this.x, this.z, cx, cz);
+        this.pathI = 0; this.goal = { x: cx, z: cz };
+        if (this.path) return;
+      }
+      wp = options[Math.floor(Math.random() * options.length)];
+    } else if (pr && Math.random() < 0.3 + 0.5 * this.menace) {
+      // drift toward the player's room or the rooms next to it
+      const near = options.filter((w) => w.room === pr.name || Math.hypot(w.x - pl.pos.x, w.z - pl.pos.z) < 6.5);
       const pool = near.length ? near : options;
       wp = pool[Math.floor(Math.random() * pool.length)];
-      if (sinceNear > 40) this.lastPlayerNear = now - 20;
     } else {
       wp = options[Math.floor(Math.random() * options.length)];
     }
@@ -189,6 +206,21 @@ export class MrHush {
     const dP = Math.hypot(pl.pos.x - this.x, pl.pos.z - this.z);
     if (dP < 9) this.lastPlayerNear = g.time;
     if (this.state === 'dormant') this.sleepNoise = Math.max(0, (this.sleepNoise || 0) - dt * 0.12);
+    const roaming = ['wander', 'investigate', 'search', 'check'].includes(this.state);
+    if (roaming) {
+      // menace: the longer he's away from you, the more he drifts your way
+      if (dP > 8) this.menace = Math.min(1, this.menace + dt / 45);
+      else if (dP < 5) this.menace = Math.max(0, this.menace - dt / 12);
+      // scent: silent isn't invisible when you're right next to him
+      if (dP < 2.3 && !pl.hidden && pl.mode === 'walk') this.smellT += dt;
+      else this.smellT = Math.max(0, this.smellT - dt * 0.5);
+      if (this.smellT > 2.5) {
+        this.smellT = 0;
+        g.audio.play('hush_sniff', { pos: this.headPos, gain: 1 });
+        this.voice.cut();
+        this.goTo(pl.pos.x, pl.pos.z, 'investigate');
+      }
+    } else this.smellT = 0;
     // woken mid-sit: stand up before doing anything else
     if (this.state !== 'dormant' && this.state !== 'holdout' && P.sit > 0.02) {
       P.sit = Math.max(0, P.sit - dt * 0.9);

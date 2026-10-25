@@ -411,7 +411,7 @@ export class Game {
     const surf = p.surface();
     const mul = SURF_MUL[surf] ?? 1;
     const radius = MOVE[state].noise * mul;
-    this.sound({ x: p.pos.x, y: 0.05, z: p.pos.z, radius: Math.max(0.9, radius), strength: 0.85, kind: 'step', source: 'player' });
+    this.sound({ x: p.pos.x, y: 0.05, z: p.pos.z, radius: Math.max(0.9, radius), strength: 0.85, kind: 'step', source: 'player', soft: state === 'crouch' });
     const name = { carpet: 'step_carpet', rug: 'step_rug', wood: 'step_wood', tile: 'step_tile', glass: 'step_glass', grass: 'step_grass' }[surf] || 'step_wood';
     const g = (state === 'sprint' ? 1.0 : state === 'crouch' ? 0.35 : 0.7) * Math.min(1.2, mul + 0.2);
     this.audio.play(name, { gain: g, jitter: 0.12, reverb: 0.18 });
@@ -842,8 +842,12 @@ export class Game {
   updatePlayActions(dt) {
     const pl = this.player, input = this.input;
     if (pl.mode === 'walk' && input.actHit('knock')) this.knock();
-    if (pl.mode === 'hide') {
-      const holding = input.act('breath') && pl.breath > 0;
+    // breath: hold it anywhere (not while sprinting). When he's close, your breathing is noise.
+    const h = this.hush;
+    const dH = Math.hypot(h.x - pl.pos.x, h.z - pl.pos.z);
+    const hushClose = !['dormant', 'holdout', 'grab'].includes(h.state) && dH < 4.5;
+    if (pl.mode === 'hide' || pl.mode === 'walk') {
+      const holding = input.act('breath') && pl.breath > 0 && pl.moveState !== 'sprint';
       if (holding && !pl.breathHeld) this.audio.play('breath_in', { gain: 0.35, rate: 1.2 });
       if (!holding && pl.breathHeld) {
         this.audio.play('breath_out', { gain: pl.breath <= 0.02 ? 0.8 : 0.35, rate: 1.1 });
@@ -854,9 +858,18 @@ export class Game {
       }
       pl.breathHeld = holding;
       pl.breath = holding ? Math.max(0, pl.breath - dt / 6.5) : Math.min(1, pl.breath + dt / 3.5);
-      this.ui.breath(true, pl.breath, holding);
+      this.ui.breath(pl.mode === 'hide' || hushClose || holding || pl.breath < 0.98, pl.breath, holding);
+      this.breathT = (this.breathT || 0) - dt;
+      if (hushClose && !holding && this.breathT <= 0) {
+        this.breathT = 1.6;
+        this.sound({ x: pl.pos.x, z: pl.pos.z, y: 1.4, radius: 0.9 + this.fear * 1.6, strength: 0.3, source: 'player', kind: 'breath', visual: false, soft: true });
+      }
+      if (hushClose && !this.chapter.flags.breathHint) {
+        this.chapter.flags.breathHint = true;
+        this.ui.hint(`<span><kbd>${input.label('breath')}</kbd>Hold your breath. This close, he can hear you breathing.</span>`, 6000);
+      }
     } else this.ui.breath(false);
-    if (pl.mode === 'walk' && pl.stamina < 0.25) {
+    if (pl.mode === 'walk' && pl.stamina < 0.25 && !pl.breathHeld) {
       this.exhaustT -= dt;
       if (this.exhaustT <= 0) {
         this.exhaustT = 1.5;

@@ -73,6 +73,11 @@ States: `dormant` (in chair) → `wander` (hums; picks waypoints biased to distu
 - Hearing: geodesic distance (mode 1) vs `radius * hearMul`. Intensity > 0.42 from the player triggers a hunt, otherwise investigate.
 - Contact: hunting with distance < 1 m grabs. Otherwise a 0.75 s sniff, then lunge (lets the player flee).
 - **Asleep in the chair (`dormant`)**: wakes early if a single noise reaches intensity > 0.45, or accumulated `sleepNoise` > 1.4 (decays). Guarded by `wakeable` (false after dawn). Otherwise the key pickup wakes him (scripted in `Chapter1.takeKey`, skipped if already awake). Standing up from the chair blocks other behaviour until `pose.sit` reaches 0.
+- **Always a threat (anti-cheese)**, tuned with bot simulations (a careful evasive bot survives 3 min about 50% of the time):
+  - `menace` (0..1) rises while he's more than 8 m from the player (+1/45 s) and falls when close. `pickWander` drifts toward the player's room with probability 0.3 + 0.5 × menace. At menace > 0.85 he walks (humming, wander pace) to a point 2.5 to 4.5 m from the player.
+  - `smellT`: 2.5 s within 2.3 m of him (not hidden) makes him investigate your position.
+  - Breathing: within 4.5 m of an awake Hush the player emits a soft `breath` sound every 1.6 s unless holding breath (Space, works anywhere except sprinting, about 6.5 s capacity, gasp when empty). Logic is in `Game.updatePlayActions`.
+  - Sounds flagged `soft: true` (creep steps, breath, slow doors) need intensity > 0.75 to start a hunt; normal sounds need > 0.42.
 - **Tracking (`canTrack`)**: while hunting (or searching, within 4.5 m) he follows the player's live position if they're within 7 m, moving at walk speed or faster, not crouched, and at most one wall away. Freeze, creep or hide to break the trail.
 - Hiding check catches you if you weren't holding your breath (or 50% if he heard you enter).
 - Speeds and strides: `SPEED`/`STRIDE` consts at top. Waypoints: `WAYPOINTS`.

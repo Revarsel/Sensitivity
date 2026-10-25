@@ -4,7 +4,7 @@ import { SURF } from '../world/House.js';
 
 const STAND = 1.62, CROUCH = 1.02;
 export const MOVE = {
-  crouch: { speed: 1.15, stride: 0.55, noise: 0.9 },
+  crouch: { speed: 1.15, stride: 0.55, noise: 1.3 },
   walk: { speed: 2.15, stride: 0.78, noise: 3.6 },
   sprint: { speed: 4.3, stride: 1.12, noise: 7.6 },
 };
