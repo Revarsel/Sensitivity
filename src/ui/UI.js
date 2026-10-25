@@ -427,7 +427,7 @@ export class UI {
       const isTape = !!TAPES[k];
       const info = isTape ? TAPES[k] : DOCS[k];
       const got = collected.has(k);
-      return `<button class="item ${got ? '' : 'missing'}" data-k="${k}"><span class="n">${ROMAN[i]}.</span><span>${got ? info.title : 'Not yet found'}</span><span class="k">${got ? (isTape ? (info.tv ? 'Broadcast' : 'Tape') : 'Document') : ''}</span></button>`;
+      return `<button class="item ${got ? '' : 'missing'}" data-k="${k}"><span class="n">${ROMAN[i]}.</span><span>${got ? info.title : 'Not yet found'}</span><span class="k">${got ? (isTape ? (info.tv ? 'Broadcast' : 'Tape') : 'Document') : (k === 'tape_ellis' ? 'After dawn' : (info.place || ''))}</span></button>`;
     }).join('');
     list.innerHTML = `<span class="label">Recovered</span>${items}`;
     view.innerHTML = '';

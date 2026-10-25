@@ -71,16 +71,23 @@ export class Interactions {
       const objs = [];
       for (const it of this.list) if (it.enabled() && it.obj.visible !== false) objs.push(it.obj);
       const hits = this.ray.intersectObjects(objs, true);
-      let found = null;
+      let found = null, foundDist = 0;
       for (const h of hits) {
         let o = h.object;
         while (o && !this.list.some((it) => it.obj === o)) o = o.parent;
         const it = this.list.find((x) => x.obj === o);
         if (!it || h.distance > it.range) continue;
         // walls between?
+        // walls between? Stop 0.35 m short of the hit so the wall an item hangs on doesn't count.
         const e = pl.eye;
-        const tx = e.x + (h.point.x - e.x) * 0.8, tz = e.z + (h.point.z - e.z) * 0.8;
-        if (g.house.field.wallsBetween(e.x, e.z, tx, tz) > 0 && !it.door) continue;
+        const hx = h.point.x - e.x, hz = h.point.z - e.z, hl = Math.hypot(hx, hz);
+        if (!it.door && hl > 0.4) {
+          const k = (hl - 0.35) / hl;
+          if (g.house.field.wallsBetween(e.x, e.z, e.x + hx * k, e.z + hz * k) > 0) continue;
+        }
+        // big low-priority triggers (hiding spots) never hide an item lying on them
+        if (it.lowPriority && !found) { found = it; foundDist = h.distance; continue; }
+        if (found && found.lowPriority) { if (!it.lowPriority && h.distance - foundDist < 0.8) found = it; break; }
         found = it;
         break;
       }

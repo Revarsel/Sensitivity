@@ -132,16 +132,28 @@ export class Chapter1 {
     this.tv = tv;
     I.add({
       id: 'tv', obj: tv, range: 2.4,
-      prompt: () => ['E', this.tvOn ? 'Switch off the television' : 'Switch on the television'],
-      use: () => this.setTV(!this.tvOn, true),
+      prompt: () => {
+        if (this.tvOn && !g.lore.has('tv_ad')) return ['E', 'Change the channel'];
+        return ['E', this.tvOn ? 'Switch off the television' : 'Switch on the television'];
+      },
+      use: () => {
+        if (this.tvOn && !g.lore.has('tv_ad')) {
+          const s = g.house.tvScreen;
+          g.audio.play('click_small', { pos: { x: s.x, y: s.y, z: s.z }, gain: 0.8 });
+          g.sound({ x: s.x, z: s.z + 0.3, y: 0.9, radius: 5, strength: 0.8, source: 'object', kind: 'tv', color: PULSE.LIGHT });
+          g.playTape('tv_ad');
+          return;
+        }
+        this.setTV(!this.tvOn, true);
+      },
     });
 
     // ---- hiding spots
     for (const spot of H.hideSpots) {
-      const box = spot.id === 'bed' ? hotspot(3.0, 0.35, 1.12, 1.56, 0.7, 2.05)
+      const box = spot.id === 'bed' ? hotspot(3.0, 0.15, 1.12, 1.62, 0.26, 2.1)
         : spot.id === 'wardrobe' ? hotspot(0.38, 1.0, 2.6, 0.62, 2.0, 1.1) : hotspot(16.6, 1.0, 6.0, 0.62, 2.0, 1.1);
       I.add({
-        id: 'hide:' + spot.id, obj: box, range: 2.0,
+        id: 'hide:' + spot.id, obj: box, range: 2.0, lowPriority: true,
         prompt: () => (g.player.hidden === spot ? ['E', 'Leave'] : ['E', spot.id === 'bed' ? 'Hide under the bed' : 'Hide in the ' + spot.name.toLowerCase()]),
         use: () => (g.player.hidden === spot ? g.leaveHide() : g.enterHide(spot)),
       });
