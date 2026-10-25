@@ -345,7 +345,7 @@ export class Holdout {
       }
       case 'leaving': {
         const done = h.followPath(dt, 1.0);
-        if (done) { this.mode = 'gone'; h.placeDormant(); h.voice.stop(); }
+        if (done) { this.mode = 'gone'; h.placeDormant(); h.voice.stop(); h.wakeable = false; }
         return 1.0;
       }
     }

@@ -234,6 +234,7 @@ export class Chapter1 {
     g.pulses.clear();
     g.hush.reset();
     g.hush.enabled = true;
+    g.hush.wakeable = true;
     g.hush.hearMul = 1.25;
     this.setShutters(0);
     for (const toy of this.toys) toy.cool = 0;
@@ -243,7 +244,7 @@ export class Chapter1 {
     setDoor(H.doorFront, 0, true);
     setDoor(H.doorLiving, 1.2, false);
     setDoor(H.doorKitchen, 1.5, false);
-    setDoor(H.doorMom, 0, false);
+    setDoor(H.doorMom, 0.35, false); // ajar: reads as openable
     setDoor(H.doorBath, 0.5, false);
     setDoor(H.doorJune, 0, true);
     setDoor(H.doorBasement, 0, true);
@@ -345,7 +346,9 @@ export class Chapter1 {
     g.collectNotice('June’s key');
     // the house wakes up
     this.at(2.6, () => g.lightning(1.0, true));
+    const asleep = g.hush.state === 'dormant';
     this.at(3.4, () => {
+      if (g.hush.state !== 'dormant') return; // already woken by noise
       const c = g.house.hushChair;
       g.audio.play('creak_floor', { pos: { x: c.x, y: 0.6, z: c.z }, gain: 1, rate: 0.6 });
       g.audio.play('hush_step', { pos: { x: c.x, y: 0.2, z: c.z }, gain: 1 });
@@ -354,7 +357,7 @@ export class Chapter1 {
       g.hush.hearMul = 0.8;
       g.hush.timer = 3;
     });
-    this.at(5.8, () => g.subtitle('Ellis', 'Something just got up.', 2.6));
+    if (asleep) this.at(5.8, () => g.subtitle('Ellis', 'Something just got up.', 2.6));
     this.at(8.5, () => g.ui.hint('When the humming stops, he has heard you.', 5500, true));
     this.at(9.5, () => { this.setObjective('get_room'); g.checkpoint('awake'); });
     this.at(22, () => { g.hush.hearMul = 1.25; });

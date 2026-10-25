@@ -291,6 +291,8 @@ export class Game {
   // ================================================================ play
   beginPlay(cp) {
     this.ui.hideAllScreens();
+    this.struggle = null;
+    this.ui.struggle(false);
     this.ui.tapeOnly(false);
     this.stopTape();
     if (this.menuMusic) { this.menuMusic.stop(1.0); this.menuMusic = null; }

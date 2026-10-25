@@ -43,6 +43,7 @@ export class MrHush {
     this.hearMul = 1.25;
     this.visibleGlint = 0;
     this.escapes = 0;
+    this.wakeable = true; // a loud enough noise wakes him from the chair
     this.placeDormant();
   }
 
@@ -82,6 +83,27 @@ export class MrHush {
   // ---------------------------------------------------------------- hearing
   hear(o) {
     if (!this.enabled || o.source === 'hush' || o.source === 'world' || o.silent) return;
+    if (this.state === 'dormant' && this.wakeable) {
+      // asleep in the chair: he only stirs for loud noise, but noise adds up
+      const f = this.g.house.field;
+      const dd = f.sample(f.compute(o.x, o.z, 1), this.x, this.z);
+      const k = 1 - dd / (o.radius * this.hearMul * 0.85);
+      if (k > 0) {
+        this.lookTarget = Math.atan2(o.x - this.x, o.z - this.z) - this.heading;
+        this.sleepNoise = (this.sleepNoise || 0) + k;
+        if (k > 0.45 || this.sleepNoise > 1.4) {
+          this.sleepNoise = 0;
+          this.voice.start();
+          this.voice.cut();
+          this.g.audio.play('creak_floor', { pos: { x: this.x, y: 0.6, z: this.z }, gain: 1, rate: 0.6 });
+          this.g.audio.stinger('swell', 0.5);
+          this.g.subtitle('Ellis', 'It heard me.', 2.4);
+          this.g.emit('hushWoke', this);
+          this.goTo(o.x, o.z, k > 0.6 && o.source === 'player' ? 'hunt' : 'investigate');
+        }
+      }
+      return;
+    }
     if (['dormant', 'grab', 'scripted', 'holdout', 'stunned'].includes(this.state)) {
       if (this.state === 'dormant' && o.radius > 5) {
         const d = Math.hypot(o.x - this.x, o.z - this.z);
@@ -166,6 +188,14 @@ export class MrHush {
     const pl = g.player;
     const dP = Math.hypot(pl.pos.x - this.x, pl.pos.z - this.z);
     if (dP < 9) this.lastPlayerNear = g.time;
+    if (this.state === 'dormant') this.sleepNoise = Math.max(0, (this.sleepNoise || 0) - dt * 0.12);
+    // woken mid-sit: stand up before doing anything else
+    if (this.state !== 'dormant' && this.state !== 'holdout' && P.sit > 0.02) {
+      P.sit = Math.max(0, P.sit - dt * 0.9);
+      P.speed = 0;
+      this._sync(dt);
+      return;
+    }
 
     let moveSpeed = 0;
     switch (this.state) {
@@ -200,6 +230,9 @@ export class MrHush {
         P.listen = 0;
         moveSpeed = SPEED.hunt;
         this.repathT += dt;
+        // close behind you he can hear you moving (rustle, breath) and keeps tracking.
+        // Freezing, creeping or hiding breaks the trail.
+        if (this.canTrack(dP)) this.goal = { x: pl.pos.x, z: pl.pos.z };
         if (this.followPath(dt, moveSpeed)) {
           this.searchFrom = { x: this.x, z: this.z };
           this.setState('search', { timer: 3 + Math.random() * 1.5 });
@@ -210,6 +243,7 @@ export class MrHush {
       case 'search': {
         P.listen = Math.min(1, P.listen + dt * 2);
         this.timer -= dt;
+        if (this.canTrack(dP, 4.5)) { this.goTo(pl.pos.x, pl.pos.z, 'hunt'); break; }
         this.lookTarget = Math.sin(this.stateTime * 1.4) * 0.9;
         if (Math.floor(this.stateTime * 0.8) !== Math.floor((this.stateTime - dt) * 0.8)) g.audio.play('hush_sniff', { pos: this.headPos, gain: 0.7 });
         if (this.timer <= 0) {
@@ -322,6 +356,14 @@ export class MrHush {
 
     this.openDoors();
     this._sync(dt);
+  }
+
+  canTrack(dP, range = 7) {
+    const pl = this.g.player;
+    if (dP > range || pl.hidden || pl.mode !== 'walk') return false;
+    if (pl.speedNow < 0.5 || pl.moveState === 'crouch') return false;
+    const f = this.g.house.field;
+    return f.wallsBetween(this.x, this.z, pl.pos.x, pl.pos.z) <= 1;
   }
 
   nearDoorway() {

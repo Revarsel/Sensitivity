@@ -50,7 +50,10 @@ export class House {
         b.box(matB, a, y0, z, c, y1, z + T / 2);
       }
       // grid
-      if (!o || o.kind === 'window') this.field.addWall(a, z - T / 2, c, z + T / 2);
+      if (!o || o.kind === 'window') {
+        this.field.addWall(a, z - T / 2, c, z + T / 2);
+        this.b.colliders.push({ minX: a, maxX: c, minZ: z - T / 2, maxZ: z + T / 2, maxY: CEIL, noNav: true, wall: true });
+      }
       // baseboard + crown
       if (!o || o.kind === 'window') {
         if (!opts.noTrimA) {
@@ -103,7 +106,10 @@ export class House {
         b.box(matA, x - T / 2, y0, a, x, y1, c);
         b.box(matB, x, y0, a, x + T / 2, y1, c);
       }
-      if (!o || o.kind === 'window') this.field.addWall(x - T / 2, a, x + T / 2, c);
+      if (!o || o.kind === 'window') {
+        this.field.addWall(x - T / 2, a, x + T / 2, c);
+        this.b.colliders.push({ minX: x - T / 2, maxX: x + T / 2, minZ: a, maxZ: c, maxY: CEIL, noNav: true, wall: true });
+      }
       if (!o || o.kind === 'window') {
         if (!opts.noTrimA) {
           b.box(M.trim, x - T / 2 - 0.018, 0, a, x - T / 2, 0.13, c);
@@ -232,7 +238,7 @@ export class House {
     this.doorFront.fixedSign = true;
     this.doorLiving = this.door({ name: 'Door', opening: [2.5, 7, 3.5, 7], hx: 2.54, hz: 7, baseRot: 0, openSign: -1, angle: 1.2 });
     this.doorKitchen = this.door({ name: 'Door', opening: [13.5, 7, 14.5, 7], hx: 14.46, hz: 7, baseRot: Math.PI, openSign: 1, angle: 1.5 });
-    this.doorMom = this.door({ name: 'Diane’s door', opening: [4.0, 5, 5.0, 5], hx: 4.96, hz: 5, baseRot: Math.PI, openSign: -1, angle: 0 });
+    this.doorMom = this.door({ name: 'Diane’s door', opening: [4.0, 5, 5.0, 5], hx: 4.96, hz: 5, baseRot: Math.PI, openSign: -1, angle: 0.35 });
     this.doorBath = this.door({ name: 'Bathroom door', opening: [7.5, 5, 8.5, 5], hx: 7.54, hz: 5, baseRot: 0, openSign: 1, angle: 0.5 });
     this.doorJune = this.door({ name: 'June’s door', opening: [11.5, 5, 12.5, 5], hx: 11.54, hz: 5, baseRot: 0, openSign: 1, angle: 0, locked: true, note: true, lockedText: 'Locked. A note is taped to the door.' });
     this.doorBasement = this.door({ name: 'Basement door', opening: [17, 8.0, 17, 9.0], hx: 17, hz: 8.04, baseRot: -Math.PI / 2, openSign: 1, angle: 0, locked: true, note: true, hushCanOpen: false, lockedText: 'Nailed shut from this side.' });
