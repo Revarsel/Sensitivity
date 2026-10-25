@@ -386,6 +386,8 @@ export class Chapter1 {
     g.sound({ x: c.x, z: c.z, y: 1, radius: 2.4, strength: 0.7, source: 'player', kind: 'door' });
     g.ui.message('Unlocked.');
     this.flags.juneOpen = true;
+    // the latch gives and the door drifts open a crack
+    this.at(0.45, () => { if (!d.locked && d.isClosed) { d.target = 0.3; d.speed = 0.4; d.moving = true; } });
   }
 
   useMonitor() {

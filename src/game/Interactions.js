@@ -103,6 +103,15 @@ export class Interactions {
     // ---- doors: tap = fast & loud, hold = slow & quiet
     if (it.door) {
       const d = it.door;
+      // a locked door reacts to the press itself (tap or hold): try it, or unlock it with a key
+      if (d.locked) {
+        if (input.actHit('interact')) {
+          this.doorPressed = false;
+          this.holdT = 0;
+          it.onLocked ? it.onLocked() : this.locked(d);
+        }
+        return;
+      }
       if (input.actHit('interact')) { this.holdT = 0; this.doorPressed = true; }
       if (this.doorPressed && input.act('interact')) {
         this.holdT += dt;
