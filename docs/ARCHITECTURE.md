@@ -40,7 +40,7 @@ Stack: Three.js r186, Vite 8, plain ES modules, WebGL2, Web Audio. Entry: `index
 | `src/game/Lore.js` | **All story text**: `DOCS`, `TAPES` (subtitle lines `[who, text, seconds]`), `LORE_ORDER`, `OBJECTIVES`, `CHECKPOINTS`, `ITEMS` (carried-item names and icons for the HUD inventory). |
 | `src/ui/UI.js` | All DOM UI built from template strings: boot, menu, prologue, pause, settings, evidence, document viewer, death, end, HUD (prompt, objective (always shown; `.fresh` = large for 7 s, then it settles small), hint, message, subtitles, noise meter, breath, struggle, holdout `#doorfight`, `#inventory`, clock, tape cassette), baby-monitor overlay, card, fade, `#fps` counter, `#resume-veil` ("Click to continue"). Callbacks go to `game.menuAction/pauseAction/deathAction/endAction`. |
 | `src/styles/main.css` | CSS tokens (colours, font stacks). `ui.css`: all UI styling. |
-| `docs/` | `CHAPTER_1_PLAN.md` (design), `LORE.md` (whole story; update with lore changes), `TECHNICAL.md` (plain-language how-it-works; update with system changes), this file. |
+| `docs/` | `CHAPTER_1_PLAN.md` (design), `LORE.md` (whole story; update with lore changes), `TECHNICAL.md` (plain-language how-it-works; update with system changes), `IMPROVEMENTS.md` (prioritised backlog), this file. |
 
 ---
 
