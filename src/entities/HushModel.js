@@ -263,7 +263,7 @@ export function createHushModel() {
 
   return {
     root, hips, torso, neck, head, jaw, legs, arms, eyes, glints, earR, tufts, mats,
-    pose: { walk: 0, speed: 0, listen: 0, hunch: 0, sit: 0, grab: 0, jaw: 0, stagger: 0, look: 0, reach: 0, turn: 0, sniff: 0, stir: 0 },
+    pose: { walk: 0, speed: 0, listen: 0, hunch: 0, sit: 0, grab: 0, jaw: 0, stagger: 0, look: 0, reach: 0, turn: 0, sniff: 0, stir: 0, squeeze: 0 },
   };
 }
 
@@ -283,7 +283,8 @@ function spring(st, key, target, dt, k = 60, damp = 10) {
 
 // Animate the rig. `p` holds blend weights; `phase` is the walk cycle (a footfall at every multiple of PI).
 // Pose channels: walk, speed, listen, hunch, sit, grab, jaw, stagger, look, reach,
-// plus turn (-1..1, + = turning left), sniff (0..1 impulse), stir (0..1 half-awake in the chair).
+// plus turn (-1..1, + = turning left), sniff (0..1 impulse), stir (0..1 half-awake in the chair),
+// squeeze (0..1 in a doorway: the stuffed body squashes narrower and the arms tuck in front).
 export function animateHush(m, dt, time, phase) {
   const p = m.pose;
   const A = m.anim || (m.anim = { twT: 2 + Math.random() * 3, twX: 0, twY: 0, twZ: 0 });
@@ -293,7 +294,7 @@ export function animateHush(m, dt, time, phase) {
   const s = Math.sin(phase), c = Math.cos(phase);
   const sit = p.sit, grab = p.grab, stag = p.stagger;
   const turn = Math.max(-1, Math.min(1, p.turn || 0));
-  const sniff = p.sniff || 0, stir = p.stir || 0;
+  const sniff = p.sniff || 0, stir = p.stir || 0, sq = p.squeeze || 0;
   const reach = Math.max(grab, p.reach);
   // breathing: slow and deep asleep, heaving when hunting or holding you
   const breath = Math.sin(time * (sit > 0.5 ? 0.85 : 1.3 + run * 1.8 + grab * 2.2));
@@ -301,8 +302,9 @@ export function animateHush(m, dt, time, phase) {
   const fall = Math.pow(1 - Math.abs(s), 4) * walkAmt;
 
   // ---- hips: waddle, bob, a heavy dip on each footfall, lean into turns
+  // seated, the hips rest on the cushion (~0.48 m) rather than sinking through it
   m.hips.position.y = 0.78 + Math.abs(s) * (0.05 + run * 0.03) * walkAmt - fall * (0.03 + run * 0.035)
-    - p.hunch * 0.06 - sit * 0.3 - stag * 0.05;
+    - p.hunch * 0.06 - sit * 0.14 - stag * 0.05;
   m.hips.position.z = -sit * 0.15;
   m.hips.rotation.z = c * (0.07 + run * 0.04) * walkAmt - turn * 0.1;
   m.hips.rotation.y = s * 0.07 * walkAmt;
@@ -321,6 +323,9 @@ export function animateHush(m, dt, time, phase) {
   m.torso.rotation.x = spring(A, 'tx', lean, dt, 40, 9);
   m.torso.rotation.y = -s * (0.09 + run * 0.06) * walkAmt; // counter-twist against the hips
   m.torso.rotation.z = -c * 0.05 * walkAmt + sit * 0.12 + stag * Math.sin(time * 9) * 0.1 - turn * 0.06;
+  // squeezing through a doorway: 1.25 m of stuffing squashes to ~0.85 m (the head keeps its shape)
+  m.torso.scale.x = 1 - 0.32 * sq;
+  m.neck.scale.x = 1 / m.torso.scale.x;
 
   // ---- arms: too long, too loose. They swing late and overshoot; stunned, he clutches his head.
   for (let i = 0; i < 2; i++) {
@@ -328,9 +333,9 @@ export function animateHush(m, dt, time, phase) {
     const side = i === 0 ? -1 : 1;
     const swing = (i === 0 ? -s : s) * (0.4 + run * 0.35) * walkAmt;
     // stunned (stag): upper arms out and forward, forearms folded back so the paws clutch his head
-    const sx = swing * (1 - stag) - p.hunch * 0.3 - reach * 1.55 - sit * 0.2 - stag * 1.25 + breath * 0.03 * (1 - walkAmt);
+    const sx = swing * (1 - stag) * (1 - sq * 0.6) - p.hunch * 0.3 - reach * 1.55 - sit * 0.2 - stag * 1.25 - sq * 0.45 + breath * 0.03 * (1 - walkAmt);
     a.shoulder.rotation.x = spring(A, 'sx' + i, sx, dt, 45, 8);
-    a.shoulder.rotation.z = side * (0.12 + sit * 0.35 + reach * 0.1 + stag * 0.6 + run * 0.08);
+    a.shoulder.rotation.z = side * ((0.12 + sit * 0.35 + reach * 0.1 + stag * 0.6 + run * 0.08) * (1 - sq) - sq * 0.12);
     // the forearm drags behind the upper arm's motion
     const ex = -0.25 - p.hunch * 0.2 + sit * 0.3 - reach * 0.2 - stag * 2.0 - run * 0.35 - (A['sx' + i + 'v'] || 0) * 0.06;
     a.elbow.rotation.x = spring(A, 'ex' + i, ex, dt, 30, 6);

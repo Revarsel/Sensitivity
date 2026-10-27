@@ -1,6 +1,14 @@
 // A* navigation over the same grid as the sound field.
+// Mr. Hush is ~1.25 m wide and ~1 m deep, so the grid keeps his centre well away from walls and
+// furniture (WALL_CLEAR, inflate). Near doorways the wall margin drops to one cell so doors stay
+// passable, and paths are routed through the middle of every doorway (centerDoorways).
+const WALL_CLEAR = 0.55;  // metres from a wall cell's centre
+const DOOR_ZONE = 1.2;    // within this distance of a doorway centre, only the one-cell margin applies
+const DOOR_STEP = 0.6;    // waypoints this far either side of a doorway centre
+const LOW_FURNITURE = 1.05, LOW_INFLATE = 0.36; // colliders lower than this get a smaller margin
+
 export class NavGrid {
-  constructor(field, colliders, inflate = 0.32) {
+  constructor(field, colliders, inflate = 0.5) {
     this.f = field;
     this.W = field.W; this.H = field.H; this.cell = field.cell;
     this.static = new Uint8Array(field.N);
@@ -13,22 +21,84 @@ export class NavGrid {
   rebuild() {
     const f = this.f;
     this.static.fill(0);
-    // walls, inflated by one cell
+    this.findDoors();
+    const nearDoor = (i) => {
+      const [x, z] = this.center(i % f.W, (i / f.W) | 0);
+      return this.doors.some((d) => Math.hypot(x - d.x, z - d.z) < DOOR_ZONE);
+    };
+    // walls: one cell everywhere, and out to WALL_CLEAR away from doorways
+    const R = Math.ceil(WALL_CLEAR / this.cell);
+    const lim = (WALL_CLEAR / this.cell) ** 2;
     for (let i = 0; i < f.N; i++) {
       if (!f.wall[i]) continue;
       const x = i % f.W, z = (i / f.W) | 0;
-      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
         const nx = x + dx, nz = z + dz;
         if (nx < 0 || nz < 0 || nx >= f.W || nz >= f.H) continue;
         const ni = nz * f.W + nx;
-        if (f.door[ni] >= 0) continue; // keep doorways open
-        this.static[ni] = 1;
+        if (f.door[ni] >= 0 || this.static[ni]) continue; // keep doorways open
+        const near = Math.abs(dx) <= 1 && Math.abs(dz) <= 1;
+        if (near || (dx * dx + dz * dz <= lim && !nearDoor(ni))) this.static[ni] = 1;
       }
     }
+    // furniture: his belly (widest ~1.1 m up) clears low things, so only his legs need room there
     for (const c of this.colliders) {
       if (c.maxY < 0.3 || c.noNav) continue;
-      f.rasterRect(c.minX - this.inflate, c.minZ - this.inflate, c.maxX + this.inflate, c.maxZ + this.inflate, (i) => { if (f.door[i] < 0) this.static[i] = 1; });
+      const inf = c.maxY < LOW_FURNITURE ? LOW_INFLATE : this.inflate;
+      f.rasterRect(c.minX - inf, c.minZ - inf, c.maxX + inf, c.maxZ + inf, (i) => { if (f.door[i] < 0) this.static[i] = 1; });
     }
+  }
+
+  // doorway centres and normals, from the door cells of the sound grid
+  findDoors() {
+    const f = this.f, acc = {};
+    for (let i = 0; i < f.N; i++) {
+      const id = f.door[i];
+      if (id < 0) continue;
+      const [x, z] = this.center(i % f.W, (i / f.W) | 0);
+      const a = (acc[id] ||= { n: 0, x: 0, z: 0, minX: 1e9, maxX: -1e9, minZ: 1e9, maxZ: -1e9 });
+      a.n++; a.x += x; a.z += z;
+      a.minX = Math.min(a.minX, x); a.maxX = Math.max(a.maxX, x); a.minZ = Math.min(a.minZ, z); a.maxZ = Math.max(a.maxZ, z);
+    }
+    this.doors = Object.entries(acc).map(([id, a]) => {
+      const alongX = a.maxX - a.minX >= a.maxZ - a.minZ; // the opening runs along the wall
+      return { id: +id, x: a.x / a.n, z: a.z / a.n, nx: alongX ? 0 : 1, nz: alongX ? 1 : 0 };
+    });
+    this.doorById = Object.fromEntries(this.doors.map((d) => [d.id, d]));
+  }
+
+  // the doorway a straight segment passes through, if any
+  doorOn(ax, az, bx, bz) {
+    const len = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(len / 0.1));
+    for (let k = 0; k <= n; k++) {
+      const t = k / n, id = this.f.door[this.f.index(ax + (bx - ax) * t, az + (bz - az) * t)];
+      if (id >= 0) return this.doorById[id];
+    }
+    return null;
+  }
+
+  // walk through the middle of each doorway, square to the wall, instead of cutting the jamb
+  centerDoorways(sx, sz, pts) {
+    const out = [];
+    let px = sx, pz = sz;
+    for (const p of pts) {
+      const d = this.doorOn(px, pz, p[0], p[1]);
+      if (d) {
+        const s = Math.sign((p[0] - px) * d.nx + (p[1] - pz) * d.nz) || 1;
+        for (const k of [-DOOR_STEP, 0, DOOR_STEP]) {
+          const q = [d.x + d.nx * k * s, d.z + d.nz * k * s];
+          if (k !== 0 && this.blocked(this.f.index(q[0], q[1]))) continue;
+          const prev = out.length ? out[out.length - 1] : [px, pz];
+          if (Math.hypot(q[0] - prev[0], q[1] - prev[1]) < 0.15 || Math.hypot(q[0] - p[0], q[1] - p[1]) < 0.15) continue;
+          // only add points that lie between where we are and where we're going
+          if (((q[0] - px) * (p[0] - px) + (q[1] - pz) * (p[1] - pz)) < 0) continue;
+          out.push(q);
+        }
+      }
+      out.push(p);
+      px = p[0]; pz = p[1];
+    }
+    return out;
   }
 
   setDoorBlocked(doorId, blocked) {
@@ -119,7 +189,7 @@ export class NavGrid {
     const out = pts.slice(1).map((i) => this.center(i % W, (i / W) | 0));
     out[out.length - 1] = [tx, tz];
     if (this.blocked(this.f.index(tx, tz))) out[out.length - 1] = this.center(t[0], t[1]);
-    return out;
+    return this.centerDoorways(sx, sz, out);
   }
 
   los(a, b) {

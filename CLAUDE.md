@@ -2,7 +2,7 @@
 
 ## Do NOT read the whole codebase
 
-The codebase is about 8,300 lines of JS plus CSS. Reading all of it wastes the owner's credits.
+The codebase is about 10,300 lines of JS plus CSS. Reading all of it wastes the owner's credits.
 
 1. Start with **`docs/ARCHITECTURE.md`**. It maps every file, system, key function and convention.
 2. Use it to find the **one or two files** a task touches. Open only those, and only the relevant parts (use Grep or line ranges).

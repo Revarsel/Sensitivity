@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { resolveCircle } from './Collision.js';
 import { Pipeline } from '../render/Pipeline.js';
 import { createSharedUniforms, PulseSystem, PULSE } from '../render/Pulses.js';
 import { setSharedUniforms } from '../render/RevealMaterial.js';
@@ -18,8 +19,10 @@ import { TAPES, LORE_ORDER, OBJECTIVES, CHECKPOINTS } from '../game/Lore.js';
 import { loadSettings, saveSettings, loadSave, writeSave, QUALITY, VOLUME_SCALE, DEFAULTS } from './Settings.js';
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-// seconds after breaking free during which a second grab is fatal (he is stunned for the first 4)
+// seconds after breaking free during which a second grab is fatal (he is stunned for the first 2)
 const RECATCH_WINDOW = 45;
+// how far in front of you he holds you when he grabs (his face fits the view)
+const GRAB_DIST = 1.15;
 // strength of the faint glow around the player (RevealMaterial near-field, 3 m)
 const NEAR_GLOW = 0.07;
 
@@ -711,14 +714,13 @@ export class Game {
     this.redFlash = 1;
     pl.shake = 1.4;
     this.fear = 1;
-    // he is right in your face
-    const dx = pl.pos.x - h.x, dz = pl.pos.z - h.z, dd = Math.hypot(dx, dz) || 1;
-    // close, but far enough that his face fits the view (his head leans ~0.4 m forward of his body)
-    const GD = 1.15;
-    if (dd > GD) { h.x = pl.pos.x - (dx / dd) * GD; h.z = pl.pos.z - (dz / dd) * GD; }
-    h.heading = Math.atan2(pl.pos.x - h.x, pl.pos.z - h.z);
+    // he is right in your face, always at the same distance: never on top of you (the camera would
+    // look straight up and its yaw would flip) and never inside a wall
+    pl.glide = null;
+    pl.vel.set(0, 0);
+    this.placeForGrab();
     h._sync();
-    pl.forcedLook = { x: h.x, y: 1.95, z: h.z, speed: 14 };
+    this.faceHush();
     h.m.pose.jaw = 1;
     this.ui.clearHint();
     this.ui.setPrompt(null);
@@ -755,6 +757,27 @@ export class Game {
 
   startStruggle(canEscape, onWin, onLose) {
     this.struggle = { t: 0, p: 0, next: 'A', canEscape, onWin, onLose, dur: canEscape ? 3.4 : 1.2 };
+  }
+
+  // Put him GRAB_DIST from the player on the side he came from (or the nearest free direction),
+  // clear of walls and furniture with nothing between you.
+  placeForGrab() {
+    const pl = this.player, h = this.hush, H = this.house;
+    let dx = h.x - pl.pos.x, dz = h.z - pl.pos.z;
+    if (Math.hypot(dx, dz) < 0.05) { dx = -Math.sin(pl.yaw); dz = -Math.cos(pl.yaw); }
+    const base = Math.atan2(dx, dz);
+    let spot = null;
+    for (let k = 0; k < 12 && !spot; k++) {
+      const a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (Math.PI / 6);
+      const x = pl.pos.x + Math.sin(a) * GRAB_DIST, z = pl.pos.z + Math.cos(a) * GRAB_DIST;
+      const [rx, rz] = resolveCircle(x, z, 0.42, H.colliders, null, { minY: 0.3 });
+      if (Math.hypot(rx - x, rz - z) < 0.02 && H.field.wallsBetween(pl.pos.x, pl.pos.z, x, z) === 0) spot = [x, z];
+    }
+    if (!spot) { // boxed in: straight in front, pushed out of whatever it overlaps
+      spot = resolveCircle(pl.pos.x + Math.sin(base) * GRAB_DIST, pl.pos.z + Math.cos(base) * GRAB_DIST, 0.42, H.colliders, null, { minY: 0.3 });
+    }
+    h.x = spot[0]; h.z = spot[1];
+    h.heading = Math.atan2(pl.pos.x - h.x, pl.pos.z - h.z);
   }
 
   // Keep the camera on his face (not his body) while he holds you.
@@ -1047,11 +1070,15 @@ export class Game {
     }
   }
 
+  // you can't walk into him; if he walks into you, you're shoved aside but never into a wall
   pushFromHush() {
     const pl = this.player, h = this.hush;
     if (pl.mode !== 'walk' || h.state === 'dormant') return;
     const dx = pl.pos.x - h.x, dz = pl.pos.z - h.z, d = Math.hypot(dx, dz);
-    if (d < 0.75 && d > 1e-4) { pl.pos.x = h.x + (dx / d) * 0.75; pl.pos.z = h.z + (dz / d) * 0.75; }
+    if (d < 0.75 && d > 1e-4) {
+      pl.pos.x = h.x + (dx / d) * 0.75; pl.pos.z = h.z + (dz / d) * 0.75;
+      [pl.pos.x, pl.pos.z] = resolveCircle(pl.pos.x, pl.pos.z, pl.radius, this.house.colliders, this.house.doors);
+    }
   }
 
   updateFear(dt) {

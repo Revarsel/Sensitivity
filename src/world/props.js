@@ -19,7 +19,12 @@ export function sofa(b, M, w = 2.0, mat = M.fabricRed) {
   b.collider(-w / 2, -d / 2, w / 2, d / 2, 0.9);
 }
 
-export function armchair(b, M, mat = M.fabricGreen) {
+// opts.sx / opts.sz: stretch it wider / deeper (heights stay), e.g. the chair he has outgrown
+export function armchair(b, M, mat = M.fabricGreen, opts = {}) {
+  if (opts.sx || opts.sz) {
+    b.with(new THREE.Matrix4().makeScale(opts.sx || 1, 1, opts.sz || 1), () => armchair(b, M, mat));
+    return;
+  }
   const w = 0.95, d = 0.9;
   b.rbox(mat, 0, 0.26, 0.02, w, 0.24, d, 0.05);
   b.rbox(mat, 0, 0.42, 0.08, w - 0.3, 0.12, d - 0.25, 0.05, 3);

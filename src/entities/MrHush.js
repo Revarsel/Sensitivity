@@ -1,4 +1,9 @@
 import { createHushModel, animateHush } from './HushModel.js';
+import { resolveCircle } from '../core/Collision.js';
+
+// keep his body out of walls and furniture (a safety net: the nav grid already keeps paths clear).
+// Radii stay inside the nav margins so the two never fight. Low furniture only needs his legs' width.
+const BODY_R = 0.46, LEGS_R = 0.3, LOW_Y = 1.05;
 import { HushVoice } from '../audio/Audio.js';
 import { PULSE } from '../render/Pulses.js';
 
@@ -334,18 +339,18 @@ export class MrHush {
         moveSpeed = 0;
         this.turnToward(pl.pos.x, pl.pos.z, dt, 12);
         break;
-      case 'stunned':
+      case 'stunned': {
         P.grab = Math.max(0, P.grab - dt * 3);
-        P.stagger = Math.min(1, P.stagger + dt * 4);
         this.timer -= dt;
-        // stumble backwards
-        this.x -= Math.sin(this.heading) * dt * 0.6 * Math.max(0, this.timer - 1.5);
-        this.z -= Math.cos(this.heading) * dt * 0.6 * Math.max(0, this.timer - 1.5);
-        if (this.timer <= 0) {
-          P.stagger = 0;
-          this.goTo(pl.pos.x, pl.pos.z, 'hunt');
-        }
+        // reel for most of it, recover over the last 0.6 s
+        P.stagger = this.timer > 0.6 ? Math.min(1, P.stagger + dt * 5) : Math.max(0, P.stagger - dt * 2);
+        // stumble backwards (about 0.7 m), slowing to a stop
+        const back = Math.max(0, this.timer - 0.9) * 1.2;
+        this.x -= Math.sin(this.heading) * dt * back;
+        this.z -= Math.cos(this.heading) * dt * back;
+        if (this.timer <= 0) this.goTo(pl.pos.x, pl.pos.z, 'hunt');
         break;
+      }
       case 'holdout':
         if (this.holdout) moveSpeed = this.holdout.brain(dt) || 0;
         break;
@@ -354,6 +359,12 @@ export class MrHush {
     }
 
     if (this.state !== 'grab' && this.state !== 'stunned') P.grab = Math.max(0, P.grab - dt * 3);
+    if (this.state !== 'stunned') P.stagger = Math.max(0, P.stagger - dt * 3);
+    // doorways: squash through them (the doors are 0.92 m, he is not)
+    let dDoor = 9;
+    for (const d of g.nav.doors) dDoor = Math.min(dDoor, Math.hypot(d.x - this.x, d.z - this.z));
+    const sqT = P.sit > 0.05 ? 0 : 1 - Math.min(1, Math.max(0, (dDoor - 0.55) / 0.8));
+    P.squeeze += (sqT - P.squeeze) * Math.min(1, dt * 6);
     P.speed += (moveSpeed - P.speed) * Math.min(1, dt * 6);
     P.hunch += (((this.state === 'hunt' ? 1 : 0) + (this.nearDoorway() ? 0.9 : 0)) - P.hunch) * Math.min(1, dt * 4);
     if (this.state !== 'check') P.reach = Math.max(0, P.reach - dt * 3);
@@ -398,8 +409,18 @@ export class MrHush {
     }
     this.lastPos.x = this.x; this.lastPos.z = this.z;
 
+    this.pushOut();
     this.openDoors();
     this._sync(dt);
+  }
+
+  pushOut() {
+    if (this.state === 'dormant' || this.state === 'scripted' || this.m.pose.sit > 0.05) return;
+    const cs = this.g.house.colliders, sq = this.m.pose.squeeze;
+    const tall = this._tall || (this._tall = cs.filter((c) => c.maxY >= LOW_Y));
+    const low = this._low || (this._low = cs.filter((c) => c.maxY < LOW_Y && c.maxY >= 0.3));
+    [this.x, this.z] = resolveCircle(this.x, this.z, BODY_R - 0.2 * sq, tall, null, { minY: 0.3 });
+    [this.x, this.z] = resolveCircle(this.x, this.z, LEGS_R - 0.06 * sq, low, null, { minY: 0.3 });
   }
 
   canTrack(dP, range = 7) {
@@ -479,7 +500,7 @@ export class MrHush {
 
   // after the player breaks free
   stun() {
-    this.setState('stunned', { timer: 4 });
+    this.setState('stunned', { timer: 2 });
     this.m.pose.grab = 0;
   }
 
@@ -491,6 +512,7 @@ export class MrHush {
 
   // returns true when the path is complete
   followPath(dt, speed) {
+    speed *= 1 - 0.3 * this.m.pose.squeeze; // slower while squeezing through a doorway
     if (this.state === 'hunt' && this.repathT > 0.6 && this.goal) {
       this.repathT = 0;
       const np = this.g.nav.find(this.x, this.z, this.goal.x, this.goal.z);

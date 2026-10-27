@@ -313,8 +313,9 @@ export class House {
     at(5.2, 7.38, 0, () => { this.tvScreen = P.crtOnStand(b, M); });
     this.tvScreen = { x: 5.2 + this.tvScreen.x, y: this.tvScreen.y, z: 7.38 + this.tvScreen.z, w: this.tvScreen.w, h: this.tvScreen.h };
     // Mr Hush's armchair, facing the TV
-    at(5.2, 9.55, S, () => P.armchair(b, M));
-    this.hushChair = { x: 5.2, z: 9.4, rot: S };
+    // stretched so Mr. Hush (1.25 m across) actually fits between the wings
+    at(5.2, 9.55, S, () => P.armchair(b, M, undefined, { sx: 1.6, sz: 1.45 }));
+    this.hushChair = { x: 5.2, z: 9.3, rot: S }; // his back against the cushion, legs over the front
     at(2.6, 13.4, S, () => P.sofa(b, M, 2.1));
     at(2.6, 11.85, 0, () => P.coffeeTable(b, M));
     at(0.45, 13.5, 0, () => P.floorLamp(b, M));

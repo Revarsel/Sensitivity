@@ -110,8 +110,8 @@ Surfaces scale noise: **carpet** is quiet, **wood** is normal, **tile** is loud,
 ### 4.8 Getting caught: a chase you can escape
 1. **Hunt:** his humming stops, chase music starts, he moves fast toward the last sound he heard.
 2. **Break the trail:** go quiet, reach carpet, throw a decoy, or hide. He searches the last place he heard you, then checks hiding spots.
-3. **Grabbed:** a struggle (mash the keys) lets you break free **once**. He staggers and you run.
-4. **Grabbed again:** death. Restart from the last checkpoint.
+3. **Grabbed:** a struggle (mash the keys) lets you break free. He staggers for 2 seconds and a dim light lingers where you broke free, so you can see enough to run.
+4. **Grabbed again within 45 seconds:** death. Restart from the last checkpoint. After that, you can fight free again.
 
 ## 5. Mr. Hush
 
