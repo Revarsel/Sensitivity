@@ -35,7 +35,7 @@ npm run build    # must pass before committing
 
 ## Git workflow
 
-Develop on the branch the session gives you. When the owner asks, push to `main` as well (`git push origin <branch>:main`). `npm run build` must pass first.
+Develop on the branch the session gives you and push only to that branch. **Never push to `main` unless the owner explicitly says so for that change** (then `git push origin <branch>:main`). `npm run build` must pass first.
 
 ## Testing without a GPU (cloud sandbox)
 
