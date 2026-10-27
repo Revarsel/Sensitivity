@@ -42,7 +42,7 @@ For each point on a surface, the shader works out how long ago the ring passed i
 2. **Afterglow:** a quick drop to a dim glow that lingers.
 3. **Fade:** after a few seconds it eases away.
 
-A knock is bright from 0.25 to 0.7 s, dim until about 3 s, and gone by 5 s. Your own sounds peak slightly lower than the world's. A very faint 3 m glow around the player means standing still isn't totally black.
+A knock is bright from 0.25 to 0.7 s, dim until about 3 s, and gone by 5 s. Your own sounds peak slightly lower than the world's. When several sounds overlap, their light is **soft-limited** so the screen never washes out to white. A very faint 3 m glow around the player means standing still isn't totally black.
 
 Colours tell you the source: **ice white** for you, **red** for Mr. Hush, **amber** for the house (nightlight, drips, clock), and **pale blue** for lights and the TV.
 

@@ -51,6 +51,8 @@ float fieldDist(int i, vec2 xz) {
 }
 
 // Accumulate the reveal light arriving at world point p with normal n.
+#define GLOW_KNEE 0.33
+#define GLOW_OVER 0.22
 vec3 gatherReveal(vec3 p, vec3 n, out float ringOut) {
   vec3 sp = p + n * 0.17;
   vec3 col = vec3(0.0);
@@ -88,11 +90,14 @@ vec3 gatherReveal(vec3 p, vec3 n, out float ringOut) {
     float fresh = 1.0 - smoothstep(0.55, 0.85, passed);
     int ci = int(mod(code, 4.0));
     // the player's own sounds (palette 0) peak a little lower than the world's
-    float peak = ci == 0 ? 0.22 : 0.28;
-    float glow = B.x * (inside * B.y * fall * lam * (0.15 + peak * fresh) + ring * (ci == 0 ? 0.4 : 0.45) * fall);
+    float peak = ci == 0 ? 0.19 : 0.25;
+    float glow = B.x * (inside * B.y * fall * lam * (0.15 + peak * fresh) + ring * (ci == 0 ? 0.36 : 0.42) * fall);
     col += uPalette[ci] * glow;
     ringOut += ring * fall * B.x;
   }
+  // overlapping pulses add up (running + a knock + a door): a soft knee stops them blowing out to white
+  float pk = max(col.r, max(col.g, col.b));
+  if (pk > GLOW_KNEE) col *= (GLOW_KNEE + (pk - GLOW_KNEE) * GLOW_OVER) / pk;
   // near-field: barely make out what is right in front of you
   float pd = distance(p, uPlayer.xyz);
   // a faint glow close around the player, so standing still isn't pitch black
