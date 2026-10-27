@@ -66,7 +66,9 @@ game.sound({ x, y, z, radius, strength, color: PULSE.X, source: 'player'|'object
 - Every visible world mesh uses `revealMaterial`. It outputs to 3 targets: colour, view normal plus depth, and reveal colour plus highlight. Additive effects (dust, glass, glow) must write **zero** to targets 1 and 2.
 - Brightness comes only from pulses, `uPlayer` near-field (faint), `uAmbient` (monitor IR, dawn), and `uFlash` (lightning). These are set via `game.shared.*`.
 - Highlight an interactable: `setHighlight(mat, 0..1)`. Interactions handles this for items with `highlight:true`.
-- **Pulse fade is two-stage.** A spatial flash sits just behind the front: `fresh = exp(-(front - d) / 2.2)`. The fill is `0.11 + 0.45 * fresh` and the ring is `0.45` in `gatherReveal`. So a surface flashes as the wave passes, then drops to a dim afterglow. `Pulses.update` holds that afterglow (`B.y` = 1) until `travel + linger*0.9`, then eases it out by `life = travel + linger*2.8`. The `pow 0.55` keeps the faint tail above the edge threshold. For a knock this gives a flash at about 0.25 s, dim to about 2.9 s, and gone by about 4 s.
+- **Pulse uniforms:** `A = (x, y, z, age*speed)` holds the *unclamped* front; the shader clamps it to `maxR*1.15`. `B = (strength, fade, maxR, code)`, where `code = colour + 4*(straight-line) + 8*round(speed)`. `uPulseCount` is the highest active slot + 1, and the shader loop breaks there. `emit` fills the lowest free slot, so the count stays small.
+- **Pulse fade is two-stage.** Per point, `passed = (A.w - d) / speed` is the number of seconds since the wave went by. Then `fresh = 1 - smoothstep(0.55, 0.85, passed)`. The fill is `0.15 + 0.28 * fresh` and the ring is `0.45` in `gatherReveal`. So a surface stays fully bright for about 0.6 s, then drops quickly to a dim afterglow. `Pulses.update` holds that afterglow (`B.y` = 1) until `travel + linger*1.3`, then eases it out by `life = travel + linger*3.4` (`pow 0.55` keeps the faint tail visible). Knock: bright from 0.25 to 0.7 s, dim by 1 s, holds to about 3 s, gone by about 5 s.
+- **Near glow:** a faint 3 m glow around the player (`uPlayer.w = NEAR_GLOW` 0.07 in `Game.js`, falloff in `gatherReveal`). Off in the menu.
 - Tuning knobs: the fill and ring constants above; `uEdgeGain` and bloom in Pipeline.
 
 ## 5. Mr. Hush AI (`MrHush.js`)
@@ -112,7 +114,7 @@ Coordinates: X east, Z south, Y up. House is 17 × 14 m, ceiling 2.7 m, origin a
 localStorage keys `sensitivity.settings.v2` and `sensitivity.save.v1` (`{cp, lore:[ids], completed}`). All access is wrapped in try/catch.
 
 ## 8b. Controls and settings UI
-Settings sheet has tabs (General / Controls). `UI.renderControls` lists `ACTIONS` grouped explore/holdout. Clicking a key sets `input.capture`, and a clashing key in the same group is swapped. Static key glyphs use `data-bind` / `data-keytext` attributes, refreshed by `UI.refreshKeys(input)` from `Game.applySettings()`. Prompts passing `'E'` are auto-relabelled to the interact key.
+Settings sheet has tabs (General / Controls). General: left column Controls and Sound; right column Display (brightness, quality, adaptive resolution, show FPS, grain) and Accessibility. `UI.renderControls` lists `ACTIONS` grouped explore/holdout. Clicking a key sets `input.capture`, and a clashing key in the same group is swapped. Static key glyphs use `data-bind` / `data-keytext` attributes, refreshed by `UI.refreshKeys(input)` from `Game.applySettings()`. Prompts passing `'E'` are auto-relabelled to the interact key.
 
 ## 8c. Small but deliberate decisions
 - **Creep defaults to C, not Ctrl**, because browsers can't block Ctrl+W (close tab). `Settings.loadSettings()` migrates old saves from `ControlLeft` to `KeyC`. There's no Ctrl alias.
@@ -130,7 +132,9 @@ Settings sheet has tabs (General / Controls). `UI.renderControls` lists `ACTIONS
 ## 9b. Performance notes
 - Freezes while playing were the sound-field Dijkstra (see SoundField). Profile CPU in the sandbox by timing `g.update(1/30)` per frame and wrapping subsystem methods. Rendering times under SwiftShader are meaningless.
 - `Game.prewarmGPU()` uploads all textures and compiles shaders at load, so first views don't hitch. Call it again if a chapter adds textured meshes later.
-- GPU load: shaded pixels are capped at 2.4M (`Game.resize`) times the `QUALITY` scale. The reveal shader loops over active pulses, so cost grows with longer pulse `linger`.
+- GPU load: shaded pixels are capped at 2.4M (`Game.resize`) times `QUALITY[quality] * perf.dyn`. The reveal shader loops only up to `uPulseCount`, so cost grows with the number of overlapping pulses (longer `linger` means more of them).
+- **Adaptive resolution** (`Game.trackPerf`, setting `autoRes`, default on). It is called every real frame from the rAF loop (not in manual mode) and measures 0.5 s windows. Two windows slower than 21 ms drop `perf.dyn` by 0.1 (minimum 0.5, 2 s cooldown). About 20 s of smooth frames (< 17.8 ms) step it back up. Only active in play, holdout or cutscene. `applyScale()` applies quality × dyn. Bloom is skipped at Low quality or when dyn is at most 0.55. `Pipeline.fxaaOn` exists but stays on (Low without FXAA looked too jagged).
+- **FPS counter**: setting `showFps` (default off). `UI.fps(text)` updates the `#fps` element (top-right corner, turns red under 45). It shows the adaptive scale when that is below 100%.
 
 ## 10. Known gaps / ideas
 - No voice acting (tapes use subtitles and hiss). No microphone input. Chapter 2 (St. Agnes, flooded hospital) is not started.

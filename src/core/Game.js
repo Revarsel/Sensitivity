@@ -20,6 +20,8 @@ import { loadSettings, saveSettings, loadSave, writeSave, QUALITY, VOLUME_SCALE 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 // seconds after breaking free during which a second grab is fatal (he is stunned for 4 of them)
 const RECATCH_WINDOW = 10;
+// strength of the faint glow around the player (RevealMaterial near-field, 3 m)
+const NEAR_GLOW = 0.07;
 
 export class Game {
   constructor(canvas, uiRoot) {
@@ -156,8 +158,47 @@ export class Game {
     this.input.binds = { ...s.keybinds };
     this.ui.refreshKeys(this.input);
     this.audio.applyVolumes();
-    const sc = QUALITY[s.quality] ?? 1;
-    if (sc !== this.pipeline.scale) { this.pipeline.scale = sc; this.resize(); }
+    if (!s.showFps) this.ui.fps(null);
+    this.applyScale();
+  }
+
+  // Render scale = quality preset x adaptive factor. Low quality (or a deep adaptive drop) also skips bloom.
+  applyScale() {
+    const q = this.settings.quality;
+    const dyn = this.settings.autoRes ? (this.perf?.dyn ?? 1) : 1;
+    this.pipeline.bloomOn = q !== 'low' && dyn > 0.55;
+    const sc = (QUALITY[q] ?? 1) * dyn;
+    if (Math.abs(sc - this.pipeline.scale) > 1e-3) { this.pipeline.scale = sc; this.resize(); }
+  }
+
+  // Called every real frame: FPS readout, and adaptive resolution. Measured over 0.5 s windows.
+  // Two slow windows in a row (< ~48 fps) drop the resolution 10% (down to 50%); a long smooth
+  // stretch steps it back up. Resizing reallocates buffers, so changes are rate-limited.
+  trackPerf(raw) {
+    const p = (this.perf ||= { acc: 0, n: 0, slow: 0, good: 0, cool: 0, dyn: 1, needGood: 24 });
+    if (raw > 0.25) return; // tab was hidden or the page stalled for an outside reason
+    p.acc += raw; p.n++;
+    if (p.acc < 0.5) return;
+    const fps = p.n / p.acc, ms = 1000 / fps;
+    p.acc = 0; p.n = 0;
+    if (this.settings.showFps) {
+      this.ui.fps(Math.round(fps) + ' FPS' + (p.dyn < 1 && this.settings.autoRes ? ` · ${Math.round(p.dyn * 100)}%` : ''));
+      this.ui.el('fps').classList.toggle('slow', fps < 45);
+    }
+    if (!this.settings.autoRes) return;
+    p.cool -= 0.5;
+    const active = ['play', 'holdout', 'cutscene'].includes(this.state) && !this.paused && !this.docOpen;
+    if (!active || p.cool > 0) { p.slow = 0; p.good = 0; return; }
+    if (ms > 21) { p.slow++; p.good = 0; } else if (ms < 17.8) { p.good++; p.slow = 0; } else { p.slow = 0; p.good = 0; }
+    if (p.slow >= 2 && p.dyn > 0.5) {
+      p.dyn = Math.max(0.5, Math.round((p.dyn - 0.1) * 10) / 10);
+      p.slow = 0; p.cool = 2; p.needGood = 40; // after a drop, wait ~20 s of smooth play before trying higher
+      this.applyScale();
+    } else if (p.good >= p.needGood && p.dyn < 1) {
+      p.dyn = Math.min(1, Math.round((p.dyn + 0.1) * 10) / 10);
+      p.good = 0; p.cool = 3; p.needGood = 24;
+      this.applyScale();
+    }
   }
 
   // ================================================================ boot & menu
@@ -780,10 +821,12 @@ export class Game {
     const loop = (t) => {
       requestAnimationFrame(loop);
       this.timer.update(t);
-      const dt = Math.min(0.05, this.timer.getDelta());
+      const raw = this.timer.getDelta();
+      const dt = Math.min(0.05, raw);
       this.update(dt);
       this.render(dt);
       this.input.endFrame();
+      this.trackPerf(raw);
     };
     requestAnimationFrame(loop);
     this.canvas.addEventListener('click', () => {
@@ -959,7 +1002,7 @@ export class Game {
     fx.uTunnel.value = this.oxy;
     if (this.player.mode === 'grabbed' || this.state === 'dead') this.player.shake = Math.max(this.player.shake, 0.4);
     const e = this.player.eye;
-    const nearOn = this.state === 'menu' ? 0.0 : 0.05;
+    const nearOn = this.state === 'menu' ? 0.0 : NEAR_GLOW;
     this.shared.uPlayer.value.set(e.x, e.y - 0.3, e.z, nearOn);
   }
 

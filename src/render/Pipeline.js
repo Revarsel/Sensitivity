@@ -174,6 +174,9 @@ export class Pipeline {
   constructor(renderer) {
     this.renderer = renderer;
     this.scale = 1;
+    // cheap mode for low-end GPUs: no bloom, no FXAA (outlines go straight to the HDR buffer)
+    this.bloomOn = true;
+    this.fxaaOn = true;
     const opts = { type: THREE.HalfFloatType, format: THREE.RGBAFormat, depthBuffer: true, count: 3 };
     this.gbuf = new THREE.WebGLRenderTarget(4, 4, opts);
     for (const t of this.gbuf.textures) { t.minFilter = THREE.NearestFilter; t.magFilter = THREE.NearestFilter; t.generateMipmaps = false; }
@@ -258,13 +261,18 @@ export class Pipeline {
     r.render(scene, camera);
 
     this.compositeMat.uniforms.uTime.value = time;
-    r.setRenderTarget(this.edgeRT);
-    this.compositeQuad.render(r);
-    r.setRenderTarget(this.hdr);
-    this.fxaaQuad.render(r);
+    if (this.fxaaOn) {
+      r.setRenderTarget(this.edgeRT);
+      this.compositeQuad.render(r);
+      r.setRenderTarget(this.hdr);
+      this.fxaaQuad.render(r);
+    } else {
+      r.setRenderTarget(this.hdr);
+      this.compositeQuad.render(r);
+    }
 
     // bloom renders additively back into hdr
-    this.bloom.render(r, null, this.hdr, dt, false);
+    if (this.bloomOn) this.bloom.render(r, null, this.hdr, dt, false);
 
     this.fx.uTime.value = time;
     r.setRenderTarget(null);

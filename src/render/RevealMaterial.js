@@ -15,6 +15,7 @@ uniform vec4 uGrid;
 uniform float uGridH;
 uniform vec4 uPulseA[MAXP];
 uniform vec4 uPulseB[MAXP];
+uniform float uPulseCount; // slots above this are all empty: the loop stops there
 uniform vec3 uPalette[4];
 uniform vec4 uAmbient;
 uniform vec4 uFlash;
@@ -54,18 +55,25 @@ vec3 gatherReveal(vec3 p, vec3 n, out float ringOut) {
   vec3 sp = p + n * 0.17;
   vec3 col = vec3(0.0);
   ringOut = 0.0;
+  int count = int(uPulseCount);
   for (int i = 0; i < MAXP; i++) {
+    if (i >= count) break;
     vec4 B = uPulseB[i];
     if (B.x <= 0.0) continue;
     vec4 A = uPulseA[i];
     float eu = distance(sp.xz, A.xz);
     if (eu > B.z) continue; // geodesic distance is never shorter than straight-line
-    float geo = B.w >= 3.5 ? eu : fieldDist(i, sp.xz);
+    // B.w packs colour (0-3) + 4 if straight-line + 8 * speed (m/s)
+    float spd = floor(B.w / 8.0);
+    float code = B.w - spd * 8.0;
+    float geo = code >= 3.5 ? eu : fieldDist(i, sp.xz);
     if (geo > 900.0) continue;
     float dy = p.y - A.y;
     float d = sqrt(geo * geo + dy * dy * 0.55);
-    float front = A.w;
     float maxR = B.z;
+    // A.w is the unclamped front (age * speed), so this is how long ago the wave passed this point
+    float passed = (A.w - d) / max(spd, 1.0);
+    float front = min(A.w, maxR * 1.15);
     float inside = 1.0 - smoothstep(front - 1.1, front + 0.04, d);
     float fall = 1.0 - smoothstep(maxR * 0.45, maxR, d);
     fall *= fall;
@@ -75,16 +83,19 @@ vec3 gatherReveal(vec3 p, vec3 n, out float ringOut) {
     vec3 L = A.xyz - p;
     float ll = length(L);
     float lam = 0.42 + 0.58 * clamp(dot(n, L / max(ll, 1e-3)) * 0.5 + 0.5, 0.0, 1.0);
-    // bright just behind the front, dropping fast to a dim afterglow that lingers (B.y fades it out)
-    float fresh = exp(-max(0.0, front - d) / 2.2);
-    float glow = B.x * (inside * B.y * fall * lam * (0.11 + 0.45 * fresh) + ring * 0.45 * fall);
-    int ci = int(mod(B.w, 4.0));
+    // full brightness for a moment after the wave passes, then a quick drop to a dim afterglow
+    // that lingers (B.y eases that out)
+    float fresh = 1.0 - smoothstep(0.55, 0.85, passed);
+    float glow = B.x * (inside * B.y * fall * lam * (0.15 + 0.28 * fresh) + ring * 0.45 * fall);
+    int ci = int(mod(code, 4.0));
     col += uPalette[ci] * glow;
     ringOut += ring * fall * B.x;
   }
   // near-field: barely make out what is right in front of you
   float pd = distance(p, uPlayer.xyz);
-  float near = uPlayer.w * pow(1.0 - smoothstep(0.0, 1.9, pd), 2.0);
+  // a faint glow close around the player, so standing still isn't pitch black
+  float nk = 1.0 - smoothstep(0.0, 3.0, pd);
+  float near = uPlayer.w * nk * nk;
   col += uPalette[0] * near * (0.6 + 0.4 * clamp(dot(n, normalize(uPlayer.xyz - p)), 0.0, 1.0));
   // ambient (night vision, dawn)
   float hemi = 0.65 + 0.35 * n.y;

@@ -21,6 +21,7 @@ export function createSharedUniforms() {
     uGridH: { value: 1 },
     uPulseA: { value: a },
     uPulseB: { value: b },
+    uPulseCount: { value: 0 },
     uPalette: { value: [
       new THREE.Color(0.72, 0.84, 1.0),
       new THREE.Color(1.0, 0.13, 0.08),
@@ -89,7 +90,7 @@ export class PulseSystem {
     s.age = 0;
     s.linger = o.linger ?? 1.4;
     // the dim afterglow outlives the front: linger holds it, then it takes about as long again to fade out
-    s.life = radius / s.speed + s.linger * 2.8;
+    s.life = radius / s.speed + s.linger * 3.4;
     s.fade = 1;
     if (!s.euclid) this._writeField(best, this.field.compute(s.x, s.z, 0, radius + 0.5));
     return best;
@@ -107,22 +108,25 @@ export class PulseSystem {
 
   update(dt) {
     const A = this.shared.uPulseA.value, B = this.shared.uPulseB.value;
+    let top = 0;
     for (let i = 0; i < MAX_PULSES; i++) {
       const s = this.slots[i];
       if (!s.active) { B[i].x = 0; continue; }
       s.age += dt;
       s.radius = Math.min(s.maxR * 1.15, s.radius + s.speed * dt);
       const travel = s.maxR / s.speed;
-      // the bright flash right behind the front is spatial (see gatherReveal); this only fades the dim
+      // the bright stage (about 0.6 s after the wave passes each point) is timed in gatherReveal; this only fades the dim
       // afterglow: it holds while the front travels and for most of the linger, then eases out
       // (the power keeps the dim tail visible for longer: low values sit near the edge pass's threshold)
-      const t0 = travel + s.linger * 0.9;
+      const t0 = travel + s.linger * 1.3;
       const t = Math.min(1, Math.max(0, (s.age - t0) / (s.life - t0)));
       s.fade = Math.pow(1 - t * t * (3 - 2 * t), 0.55);
       if (s.age >= s.life) { s.active = false; B[i].x = 0; continue; }
-      A[i].set(s.x, s.y, s.z, s.radius);
-      B[i].set(s.strength, s.fade, s.maxR, s.color + (s.euclid ? 4 : 0));
+      A[i].set(s.x, s.y, s.z, s.age * s.speed);
+      B[i].set(s.strength, s.fade, s.maxR, s.color + (s.euclid ? 4 : 0) + 8 * Math.max(1, Math.round(s.speed)));
+      top = i + 1;
     }
+    this.shared.uPulseCount.value = top;
     if (this.dirty) { this.texture.needsUpdate = true; this.dirty = false; }
   }
 

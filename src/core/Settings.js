@@ -16,6 +16,8 @@ export const DEFAULTS = {
   grain: true,
   subtitles: true,
   quality: 'high',
+  autoRes: true,
+  showFps: false,
   keybinds: defaultBinds(),
 };
 

@@ -197,6 +197,7 @@ export class UI {
 
 <div id="card"><div><span class="label" id="card-label"></span><div class="big" id="card-big"></div></div></div>
 <div id="fade"></div>
+<div id="fps"></div>
 `;
     this.noiseCv = this.el('noise-cv');
     this.noiseCtx = this.noiseCv.getContext('2d');
@@ -345,17 +346,19 @@ export class UI {
         ${choice('invertY', 'Invert vertical look', [[false, 'Off'], [true, 'On']])}
         ${slider('fov', 'Field of view', 60, 95, 1, (v) => v + '°')}
         ${choice('headBob', 'Head bob', [[true, 'On'], [false, 'Off']], 'Turn off if you feel motion sick')}
-        <span class="label">Display</span>
-        ${slider('brightness', 'Brightness', 0.6, 1.8, 0.05, pct, 'The dark should still be dark')}
-        ${choice('quality', 'Render quality', [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']])}
-        ${choice('grain', 'Film grain', [[true, 'On'], [false, 'Off']])}
-      </section>
-      <section>
         <span class="label">Sound</span>
         ${slider('master', 'Master volume', 0, 1, 0.01, pct)}
         ${slider('sfx', 'Effects', 0, 1, 0.01, pct)}
         ${slider('amb', 'Ambience', 0, 1, 0.01, pct)}
         ${slider('music', 'Music', 0, 1, 0.01, pct)}
+      </section>
+      <section>
+        <span class="label">Display</span>
+        ${slider('brightness', 'Brightness', 0.6, 1.8, 0.05, pct, 'The dark should still be dark')}
+        ${choice('quality', 'Render quality', [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], 'Low also turns off bloom')}
+        ${choice('autoRes', 'Adaptive resolution', [[true, 'On'], [false, 'Off']], 'Lowers resolution when the frame rate drops')}
+        ${choice('showFps', 'Show FPS', [[false, 'Off'], [true, 'On']])}
+        ${choice('grain', 'Film grain', [[true, 'On'], [false, 'Off']])}
         <span class="label">Accessibility</span>
         ${choice('subtitles', 'Subtitles', [[true, 'On'], [false, 'Off']])}
 
@@ -453,6 +456,11 @@ export class UI {
 
   // ------------------------------------------------------------ HUD
   hud(on) { this.show('hud', on); }
+  fps(text) {
+    const f = this.el('fps');
+    f.classList.toggle('on', !!text);
+    if (text) f.textContent = text;
+  }
   hudDim(on) { this.el('hud').classList.toggle('dim', on); }
   tapeOnly(on) { this.el('hud').classList.toggle('tapeonly', on); }
   tapeFloat(on) { this.el('hud').classList.toggle('tapefloat', on); }
