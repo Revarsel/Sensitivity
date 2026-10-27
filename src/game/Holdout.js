@@ -362,6 +362,7 @@ export class Holdout {
     this.breathLoop = g.audio.loop('wind', { pos: { x: 12.0, y: 1.8, z: 5.4 }, gain: 0.0, rate: 2.2, ref: 0.8, rolloff: 1.5, bus: 'sfx' });
     this.breathLoop?.fade(0.45, 0.5);
     g.audio.play('hush_sniff', { pos: { x: 12, y: 1.9, z: 5.3 }, gain: 0.9 });
+    g.hush.m.pose.sniff = 1;
   }
   arriveWindow() {
     const g = this.g, h = g.hush;

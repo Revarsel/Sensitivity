@@ -119,8 +119,15 @@ export class Throwables {
   update(dt, input) {
     const g = this.g;
     if (this.held && g.player.mode === 'walk') {
-      if (input.mouseDown(0)) this.charge = Math.min(1, this.charge + dt * 1.5);
-      if (input.mouseUp(0)) this.throw();
+      // only a press that starts during play throws: the release of a menu click (Resume,
+      // or the click that re-captures the mouse) must not
+      if (input.mouseHit(0)) this.armed = true;
+      if (this.armed && input.mouseDown(0)) this.charge = Math.min(1, this.charge + dt * 1.5);
+      if (input.mouseUp(0)) {
+        if (this.armed) this.throw();
+        this.armed = false;
+        this.charge = 0;
+      }
       // idle sway
       const t = g.time;
       this.viewAnchor.position.set(0.24 + Math.sin(t * 1.3) * 0.004 - this.charge * 0.05, -0.22 + Math.sin(t * 2.1) * 0.004 + this.charge * 0.04, -0.46 + this.charge * 0.1);

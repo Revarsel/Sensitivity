@@ -88,8 +88,14 @@ export class Player {
       if (input.act('left')) ix -= 1;
       if (input.act('right')) ix += 1;
     }
-    const wantCrouch = canMove && input.act('creep');
     const moving = ix !== 0 || iz !== 0;
+    // creep: hold the key, or (setting) press once to switch it on/off; sprinting switches it off
+    let wantCrouch;
+    if (this.creepToggle) {
+      if (canMove && input.actHit('creep')) this.creepOn = !this.creepOn;
+      if (moving && input.act('run')) this.creepOn = false;
+      wantCrouch = canMove && this.creepOn;
+    } else wantCrouch = canMove && input.act('creep');
     let state = 'walk';
     if (wantCrouch) state = 'crouch';
     else if (moving && input.act('run') && this.stamina > 0.05 && iz < 0) state = 'sprint';
@@ -153,7 +159,8 @@ export class Player {
     // idle breathing sway grows with fear
     const sway = 0.004 + this.fear * 0.012;
     const ix = Math.sin(t * 0.9) * sway, iy = Math.sin(t * 1.7) * sway * 0.6;
-    const shx = (Math.random() - 0.5) * this.shake * 0.05, shy = (Math.random() - 0.5) * this.shake * 0.05;
+    const sh = this.shake * (this.shakeMul ?? 1) * 0.05; // shakeMul < 1 with Reduce flashing
+    const shx = (Math.random() - 0.5) * sh, shy = (Math.random() - 0.5) * sh;
 
     const s = Math.sin(this.yaw), c = Math.cos(this.yaw);
     this.eye.set(

@@ -15,7 +15,7 @@ import { Throwables } from '../game/Throwables.js';
 import { Chapter1 } from '../game/Chapter1.js';
 import { Holdout } from '../game/Holdout.js';
 import { TAPES, LORE_ORDER, OBJECTIVES, CHECKPOINTS } from '../game/Lore.js';
-import { loadSettings, saveSettings, loadSave, writeSave, QUALITY, VOLUME_SCALE } from './Settings.js';
+import { loadSettings, saveSettings, loadSave, writeSave, QUALITY, VOLUME_SCALE, DEFAULTS } from './Settings.js';
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 // seconds after breaking free during which a second grab is fatal (he is stunned for 4 of them)
@@ -80,6 +80,16 @@ export class Game {
     if (this.dev) this.input.allowUnlockedLook = true;
 
     this.ui = new UI(uiRoot, this);
+    // switching tabs or minimising: pause the game and silence the audio until we're back
+    document.addEventListener('visibilitychange', () => {
+      const ctx = this.audio.ctx;
+      if (document.hidden) {
+        if ((this.state === 'play' || this.state === 'holdout') && !this.paused && !this.docOpen) this.pause(true);
+        if (ctx && ctx.state === 'running') ctx.suspend();
+      } else if (ctx && ctx.state === 'suspended') ctx.resume();
+    });
+    // "Click to continue" after unpausing with Esc: the click re-captures the mouse
+    this.ui.el('resume-veil').addEventListener('click', () => this.input.requestLock());
     this.interactions = new Interactions(this);
     this.throwables = new Throwables(this);
     this.chapter = new Chapter1(this);
@@ -147,8 +157,26 @@ export class Game {
     if (this.house.dustMat) this.house.dustMat.uniforms.uPixelRatio.value = pr * this.pipeline.scale;
   }
 
+  onSettingChange(k, v) {
+    if (k === '__reset') {
+      // General tab reset: everything back to defaults except the key bindings
+      Object.assign(this.settings, { ...DEFAULTS, keybinds: this.settings.keybinds });
+      saveSettings(this.settings);
+      this.applySettings();
+      this.ui.renderSettings(this.settings, (k2, v2) => this.onSettingChange(k2, v2), this.input);
+      return;
+    }
+    this.settings[k] = v;
+    saveSettings(this.settings);
+    this.applySettings();
+  }
+
   applySettings() {
     const s = this.settings;
+    this.player.creepToggle = s.creepMode === 'toggle';
+    if (!this.player.creepToggle) this.player.creepOn = false;
+    this.player.shakeMul = s.reduceFlash ? 0.3 : 1;
+    this.ui.el('subs').classList.toggle('large', s.subSize === 'large');
     this.camera.fov = s.fov; this.camera.updateProjectionMatrix();
     this.pipeline.fx.uBrightness.value = s.brightness;
     this.pipeline.fx.uGrain.value = s.grain ? 0.065 : 0.0;
@@ -227,7 +255,7 @@ export class Game {
 
   toMenu(first = false) {
     this.state = 'menu';
-    this.paused = false;
+    this.resetPause();
     this.docOpen = false;
     this.struggle = null;
     this.input.exitLock();
@@ -290,7 +318,7 @@ export class Game {
     if (this.paused) this.ui.show('pause', false);
     if (this.state === 'menu') this.ui.show('menu', false);
     if (this.state === 'end') this.ui.show('end', false);
-    if (name === 'settings') this.ui.renderSettings(this.settings, (k, v) => { this.settings[k] = v; saveSettings(this.settings); this.applySettings(); }, this.input);
+    if (name === 'settings') this.ui.renderSettings(this.settings, (k, v) => this.onSettingChange(k, v), this.input);
     if (name === 'evidence') this.ui.renderEvidence(this.lore, (id) => this.playTape(id));
     this.ui.show(name, true);
   }
@@ -359,7 +387,7 @@ export class Game {
     this.stats = { start: this.time, heard: 0, thrown: 0, hid: 0, repelled: 0, survived: false };
     this.lastEscape = -99;
     this.state = 'play';
-    this.paused = false;
+    this.resetPause();
     this.ui.hud(true);
     this.chapter.start(cp);
     if (cp !== 'holdout') this.checkpoint(cp, true);
@@ -378,16 +406,34 @@ export class Game {
   }
 
   onLockChange(locked) {
+    if (locked && this.resumePending) { this.resetPause(); return; }
+    // a capture request still in flight when we paused: give the cursor back to the menu
+    if (locked && this.paused) { this.input.exitLock(); return; }
     if (!locked && (this.state === 'play' || this.state === 'holdout') && !this.paused && !this.docOpen && !this.dev) this.pause(true);
   }
 
   onKey(e) {
     if (this.state === 'boot') return;
     const k = e.code;
+    // death screen: Enter / Space / R retries from the checkpoint
+    if (this.state === 'dead') {
+      // ignore held/auto-repeating keys and anything in the first 0.7 s (no accidental instant retries)
+      const ready = this.ui.el('death').classList.contains('on') && !e.repeat && performance.now() - (this.deathShownAt || 0) > 700;
+      if (ready && (k === 'Enter' || k === 'NumpadEnter' || k === 'Space' || k === 'KeyR')) {
+        e.preventDefault();
+        this.deathAction('retry');
+      }
+      return;
+    }
     if (k === 'Escape') {
       if (this.docOpen) { this.closeDoc(); return; }
       if (this.sheet) { this.audio.play('ui_back', { bus: 'ui' }); this.closeSheet(); return; }
-      if ((this.state === 'play' || this.state === 'holdout') && this.dev) this.pause(!this.paused);
+      if (this.state === 'play' || this.state === 'holdout') {
+        if (this.resumePending) this.pause(true); // back to the pause menu
+        // Esc unpauses. Ignore the same Esc that just paused us (it released the mouse).
+        else if (this.paused) { if (performance.now() - (this.pausedAt || 0) > 300) this.pause(false); }
+        else if (this.dev) this.pause(true);
+      }
       return;
     }
     if (this.docOpen) {
@@ -402,31 +448,75 @@ export class Game {
     }
   }
 
+  // Unpausing needs the mouse captured again. A click (Resume) can do that; Esc can't (browsers
+  // only re-capture after a click), so then a "Click to continue" veil holds the game frozen
+  // until the player clicks. `resumePending` = menu closed, waiting for the capture.
   pause(on) {
-    if (on === this.paused) return;
-    this.paused = on;
-    if (on) {
-      this.ui.setPauseInfo({
-        objective: OBJECTIVES[this.chapter.objective],
-        room: this.house.roomAt(this.player.pos.x, this.player.pos.z)?.name,
-        lore: `${LORE_ORDER.filter((k) => this.lore.has(k)).length} of ${LORE_ORDER.length} recovered`,
-      });
-      this.ui.show('pause', true);
-      this.audio.play('ui_back', { bus: 'ui' });
-      this.input.exitLock();
-    } else {
+    if (!on) {
+      if (!this.paused || this.resumePending) return;
       this.closeSheet();
       this.ui.show('pause', false);
+      if (this.dev || this.input.locked) { this.resetPause(); return; }
+      this.resumePending = true;
       this.input.requestLock();
+      clearTimeout(this.veilT);
+      this.veilT = setTimeout(() => { if (this.resumePending) this.ui.show('resume-veil', true); }, 160);
+      return;
     }
+    if (this.paused && !this.resumePending) return;
+    this.resumePending = false;
+    clearTimeout(this.veilT);
+    this.ui.show('resume-veil', false);
+    this.paused = true;
+    this.pausedAt = performance.now();
+    this.ui.setPauseInfo({
+      objective: OBJECTIVES[this.chapter.objective],
+      room: this.house.roomAt(this.player.pos.x, this.player.pos.z)?.name,
+      lore: `${LORE_ORDER.filter((k) => this.lore.has(k)).length} of ${LORE_ORDER.length} recovered`,
+      keys: this.controlsRef(),
+    });
+    this.ui.show('pause', true);
+    this.audio.play('ui_back', { bus: 'ui' });
+    this.input.exitLock();
+  }
+
+  // [[key, what]] for the pause screen's controls reference, using the current bindings
+  controlsRef() {
+    const L = (a) => this.input.label(a);
+    if (this.state === 'holdout') {
+      return [[L('monitor'), 'Baby monitor'], ['1 2 3', 'Rooms'], [L('lullaby'), 'Lullaby lure'], ['Mouse', 'Hold door / shutters']];
+    }
+    return [
+      [[L('forward'), L('left'), L('back'), L('right')].join(''), 'Move'],
+      [L('run'), 'Run'],
+      [L('creep'), this.settings.creepMode === 'toggle' ? 'Creep (toggle)' : 'Creep (hold)'],
+      [L('knock'), 'Knock'],
+      [L('interact'), 'Interact'],
+      [L('breath'), 'Hold breath'],
+      ['Mouse', 'Throw'],
+      [L('evidence'), 'Evidence'],
+    ];
+  }
+
+  // "Evidence 7 of 16 · Tab": shown when something new is added
+  evidenceNotice() {
+    const n = LORE_ORDER.filter((k) => this.lore.has(k)).length;
+    this.ui.message(`Evidence ${n} of ${LORE_ORDER.length} · ${this.input.label('evidence')} to review`, 2600);
+  }
+
+  resetPause() {
+    this.paused = false;
+    this.resumePending = false;
+    clearTimeout(this.veilT);
+    this.ui.show('resume-veil', false);
   }
 
   pauseAction(act) {
     if (act === 'resume') this.pause(false);
     else if (act === 'settings') this.openSheet('settings');
     else if (act === 'evidence') this.openSheet('evidence');
-    else if (act === 'restart') { this.ui.show('pause', false); this.paused = false; this.restartCheckpoint(); }
-    else if (act === 'quit') { this.ui.show('pause', false); this.paused = false; this.toMenu(); }
+    else if (act === 'restart') { this.ui.show('pause', false); this.resetPause(); this.restartCheckpoint(); }
+    else if (act === 'quit') { this.ui.show('pause', false); this.resetPause(); this.toMenu(); }
   }
 
   restartCheckpoint() {
@@ -523,14 +613,14 @@ export class Game {
     this.docOpen = false;
     this.ui.closeDoc();
     this.audio.play('paper', { gain: 0.45, bus: 'ui' });
-    if (this.newEvidence) { this.newEvidence = false; this.ui.message('Added to evidence · ' + this.input.label('evidence'), 2400); }
+    if (this.newEvidence) { this.newEvidence = false; this.evidenceNotice(); }
   }
 
   playTape(id, onEnd, opts = {}) {
     const t = TAPES[id];
     if (!t) return;
     this.stopTape();
-    if (opts.collect !== false && this.collectLore(id)) this.ui.message('Added to evidence · ' + this.input.label('evidence'), 2400);
+    if (opts.collect !== false && this.collectLore(id)) this.evidenceNotice();
     this.tape = { id, info: t, line: -1, t: 0, next: t.tv ? 0.4 : 1.6, onEnd };
     if (!t.tv) {
       this.audio.play('tape_click', { gain: 0.7, bus: 'ui' });
@@ -740,6 +830,7 @@ export class Game {
         : [['He heard you.', 'The humming starts again, somewhere in the house.'], ['It found you.', 'Mr. Hush is sewn shut. He never needed to see you.'], ['Too loud.', 'In this house, every sound is a confession.']];
       const [t, s] = pool[Math.floor(Math.random() * pool.length)];
       this.ui.death(CHECKPOINTS[this.save.cp || 'start'], t, s);
+      this.deathShownAt = performance.now();
     }, 900);
   }
 
@@ -1010,12 +1101,14 @@ export class Game {
     this.fadeV += (this.fadeTarget - this.fadeV) * Math.min(1, dt * 1.6);
     fx.uFade.value = this.fadeV;
     this.flash *= Math.exp(-dt * 7);
-    this.shared.uFlash.value.set(0.62, 0.72, 1.0, this.flash);
+    // Reduce flashing (accessibility): lightning, red flashes and colour fringing at ~30%
+    const calm = this.settings.reduceFlash ? 0.3 : 1;
+    this.shared.uFlash.value.set(0.62, 0.72, 1.0, this.flash * calm);
     this.redFlash *= Math.exp(-dt * 2.2);
-    fx.uRed.value = this.redFlash * 0.45;
+    fx.uRed.value = this.redFlash * 0.45 * (calm < 1 ? 0.35 : 1);
     fx.uFear.value = this.fear;
     fx.uBeat.value = Math.exp(-this.beatPhase * 7);
-    fx.uCA.value = 0.0028 + this.fear * 0.002 + this.redFlash * 0.01;
+    fx.uCA.value = 0.0028 + this.fear * 0.002 + this.redFlash * 0.01 * calm;
     fx.uVignette.value = 0.85 + this.fear * 0.15;
     // running out of air: the view tunnels and dims as you near passing out
     const pl = this.player;

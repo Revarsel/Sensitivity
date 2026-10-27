@@ -309,6 +309,10 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 #pause .right .label { display: block; margin: 0 0 10px; }
 #pause .right p { margin: 0 0 30px; font-size: 21px; font-style: italic; color: var(--bone); line-height: 1.35; }
 #pause .right p.small { font-style: normal; font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; color: var(--bone-dim); }
+/* quick controls reference on the pause screen (current bindings) */
+#pause .keyref { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 18px; }
+#pause .keyref span { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone-dim); white-space: nowrap; }
+#pause .keyref kbd { margin: 0; min-width: 26px; }
 #pause h2 { margin-bottom: 26px; }
 
 /* evidence */
@@ -536,6 +540,9 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 #subs.on { opacity: 1; }
 #subs .who { font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--bone-dim); margin-bottom: 6px; display: block; }
 #subs .line { font-family: var(--serif); font-size: clamp(19px, 1.6vw, 24px); line-height: 1.4; color: var(--bone); text-shadow: 0 0 16px #000, 0 0 3px #000; }
+/* Settings > Subtitle size: Large */
+#subs.large .line { font-size: clamp(25px, 2.2vw, 32px); }
+#subs.large .who { font-size: 12px; }
 #subs.small .line { font-size: 18px; }
 
 #hint {
@@ -765,6 +772,8 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 #death .wrap { text-align: left; width: min(820px, 84vw); }
 #death h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(54px, 7vw, 96px); margin: 14px 0 12px; color: var(--bone); }
 #death p { font-style: italic; color: var(--bone-dim); font-size: 19px; margin: 0 0 44px; }
+#death .death-keys { margin-top: 26px; display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bone-dim); }
+#death .death-keys kbd { margin: 0; }
 
 #end { background: var(--void); display: grid; place-items: center; overflow: hidden; }
 #end .wrap { width: min(640px, 86vw); }
@@ -789,6 +798,19 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 
 #fade { position: fixed; inset: 0; background: #000; pointer-events: none; opacity: 0; transition: opacity 1s; z-index: 5; }
 #fade.on { opacity: 1; }
+
+/* after Esc-unpausing: the game stays frozen until a click re-captures the mouse */
+#resume-veil {
+  z-index: 4;
+  display: grid; place-items: center;
+  background: rgba(4, 5, 6, 0.5);
+  cursor: pointer;
+  text-align: center;
+  transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+}
+#resume-veil.on { transition: opacity 0.25s ease, visibility 0s; }
+#resume-veil p { margin: 12px 0 8px; font-family: var(--serif); font-style: italic; font-size: 26px; color: var(--bone); }
+#resume-veil small { font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--bone-dim); }
 
 /* frame counter (Settings > Show FPS): tiny, out of the way, above the holdout clock */
 #fps {
@@ -832,6 +854,7 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 .keybtn:hover { border-color: var(--bone); }
 .keybtn.wait { border-color: var(--blood); color: var(--blood); animation: breathe 1.2s ease-in-out infinite; }
 .controls-pane .reset { padding-top: 22px; }
+.settings-grid .reset { padding-top: 22px; text-align: right; }
 @media (max-width: 1000px) { .controls-pane { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 680px) { .controls-pane { grid-template-columns: 1fr; } }
 

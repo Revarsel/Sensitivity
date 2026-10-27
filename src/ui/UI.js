@@ -109,6 +109,8 @@ export class UI {
       <p id="pause-room"></p>
       <span class="label">Evidence</span>
       <p class="small" id="pause-lore"></p>
+      <span class="label">Controls</span>
+      <div class="keyref" id="pause-keys"></div>
     </div>
   </div>
 </section>
@@ -152,6 +154,7 @@ export class UI {
       <li><button data-act="retry"><span class="num">i.</span><span class="rule"></span>Try again</button></li>
       <li><button data-act="quit"><span class="num">ii.</span><span class="rule"></span>Quit to menu</button></li>
     </ul>
+    <div class="death-keys"><kbd>Enter</kbd>Try again</div>
   </div>
 </section>
 
@@ -204,6 +207,7 @@ export class UI {
 
 <div id="card"><div><span class="label" id="card-label"></span><div class="big" id="card-big"></div></div></div>
 <div id="fade"></div>
+<div id="resume-veil" class="screen"><div><span class="label">Paused</span><p>Click to continue</p><small>Esc for the menu</small></div></div>
 <div id="fps"></div>
 `;
     this.noiseCv = this.el('noise-cv');
@@ -268,10 +272,12 @@ export class UI {
   }
 
   // ------------------------------------------------------------ pause
-  setPauseInfo({ objective, room, lore }) {
+  setPauseInfo({ objective, room, lore, keys }) {
     this.el('pause-obj').textContent = objective || '—';
     this.el('pause-room').textContent = room || 'Somewhere in the house';
     this.el('pause-lore').textContent = lore;
+    // keys: [[keyLabel, what], ...] for the current situation (current bindings)
+    this.el('pause-keys').innerHTML = (keys || []).map(([k, t]) => `<span><kbd>${k}</kbd>${t}</span>`).join('');
   }
 
   // ------------------------------------------------------------ settings
@@ -353,6 +359,7 @@ export class UI {
         ${choice('invertY', 'Invert vertical look', [[false, 'Off'], [true, 'On']])}
         ${slider('fov', 'Field of view', 60, 95, 1, (v) => v + '°')}
         ${choice('headBob', 'Head bob', [[true, 'On'], [false, 'Off']], 'Turn off if you feel motion sick')}
+        ${choice('creepMode', 'Creep', [['hold', 'Hold'], ['toggle', 'Toggle']], 'Hold the key, or press once to switch')}
         <span class="label">Sound</span>
         ${slider('master', 'Master volume', 0, 1, 0.01, pct)}
         ${slider('sfx', 'Effects', 0, 1, 0.01, pct)}
@@ -368,6 +375,9 @@ export class UI {
         ${choice('grain', 'Film grain', [[true, 'On'], [false, 'Off']])}
         <span class="label">Accessibility</span>
         ${choice('subtitles', 'Subtitles', [[true, 'On'], [false, 'Off']])}
+        ${choice('subSize', 'Subtitle size', [['normal', 'Normal'], ['large', 'Large']])}
+        ${choice('reduceFlash', 'Reduce flashing', [[false, 'Off'], [true, 'On']], 'Softer lightning, red flashes and shake')}
+        <div class="reset"><button class="text-btn" id="settings-reset">Reset to defaults</button></div>
 
       </section>`;
     grid.querySelectorAll('input.slider').forEach((inp) => {
@@ -382,6 +392,10 @@ export class UI {
       };
       inp.addEventListener('input', upd);
       inp.style.setProperty('--p', (((inp.value - inp.min) / (inp.max - inp.min)) * 100) + '%');
+    });
+    grid.querySelector('#settings-reset').addEventListener('click', () => {
+      this.g.audio.play('ui_back', { bus: 'ui' });
+      onChange('__reset');
     });
     grid.querySelectorAll('.choice').forEach((c) => {
       c.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {

@@ -263,53 +263,103 @@ export function createHushModel() {
 
   return {
     root, hips, torso, neck, head, jaw, legs, arms, eyes, glints, earR, tufts, mats,
-    pose: { walk: 0, speed: 0, listen: 0, hunch: 0, sit: 0, grab: 0, jaw: 0, stagger: 0, look: 0, reach: 0 },
+    pose: { walk: 0, speed: 0, listen: 0, hunch: 0, sit: 0, grab: 0, jaw: 0, stagger: 0, look: 0, reach: 0, turn: 0, sniff: 0, stir: 0 },
   };
 }
 
-// Animate the rig. `p` holds blend weights; `phase` is the walk cycle.
+// Damped spring toward a target (state kept in `st`): the heavy, slightly late, overshooting
+// motion of a big stuffed body. Sub-stepped so it stays stable at low frame rates.
+function spring(st, key, target, dt, k = 60, damp = 10) {
+  const kv = key + 'v';
+  if (st[key] === undefined) { st[key] = target; st[kv] = 0; }
+  if (dt <= 0) return st[key];
+  const n = Math.ceil(dt / 0.02), h = dt / n;
+  for (let i = 0; i < n; i++) {
+    st[kv] += (k * (target - st[key]) - damp * st[kv]) * h;
+    st[key] += st[kv] * h;
+  }
+  return st[key];
+}
+
+// Animate the rig. `p` holds blend weights; `phase` is the walk cycle (a footfall at every multiple of PI).
+// Pose channels: walk, speed, listen, hunch, sit, grab, jaw, stagger, look, reach,
+// plus turn (-1..1, + = turning left), sniff (0..1 impulse), stir (0..1 half-awake in the chair).
 export function animateHush(m, dt, time, phase) {
   const p = m.pose;
-  const sp = Math.min(1.6, p.speed);
+  const A = m.anim || (m.anim = { twT: 2 + Math.random() * 3, twX: 0, twY: 0, twZ: 0 });
+  const sp = Math.min(3.4, p.speed);
   const walkAmt = Math.min(1, sp / 1.2);
+  const run = Math.max(0, Math.min(1, (sp - 1.8) / 1.3)); // hunting pace
   const s = Math.sin(phase), c = Math.cos(phase);
+  const sit = p.sit, grab = p.grab, stag = p.stagger;
+  const turn = Math.max(-1, Math.min(1, p.turn || 0));
+  const sniff = p.sniff || 0, stir = p.stir || 0;
+  const reach = Math.max(grab, p.reach);
+  // breathing: slow and deep asleep, heaving when hunting or holding you
+  const breath = Math.sin(time * (sit > 0.5 ? 0.85 : 1.3 + run * 1.8 + grab * 2.2));
+  // footfall impact: 1 right as a foot lands, gone by mid-stride
+  const fall = Math.pow(1 - Math.abs(s), 4) * walkAmt;
 
-  // hips bob + sway
-  const sit = p.sit;
-  m.hips.position.y = 0.78 + Math.abs(s) * 0.05 * walkAmt - p.hunch * 0.06 - sit * 0.3;
+  // ---- hips: waddle, bob, a heavy dip on each footfall, lean into turns
+  m.hips.position.y = 0.78 + Math.abs(s) * (0.05 + run * 0.03) * walkAmt - fall * (0.03 + run * 0.035)
+    - p.hunch * 0.06 - sit * 0.3 - stag * 0.05;
   m.hips.position.z = -sit * 0.15;
-  m.hips.rotation.z = c * 0.06 * walkAmt;
-  m.hips.rotation.y = s * 0.05 * walkAmt;
+  m.hips.rotation.z = c * (0.07 + run * 0.04) * walkAmt - turn * 0.1;
+  m.hips.rotation.y = s * 0.07 * walkAmt;
+  m.hips.rotation.x = fall * 0.04;
 
-  // legs
-  m.legs[0].rotation.x = s * 0.55 * walkAmt - sit * 1.35;
-  m.legs[1].rotation.x = -s * 0.55 * walkAmt - sit * 1.35;
-  m.legs[0].rotation.z = -sit * 0.15; m.legs[1].rotation.z = sit * 0.15;
+  // ---- legs: longer stride when running, feet slightly splayed
+  const stride = 0.55 + run * 0.25;
+  m.legs[0].rotation.x = s * stride * walkAmt - sit * 1.35;
+  m.legs[1].rotation.x = -s * stride * walkAmt - sit * 1.35;
+  m.legs[0].rotation.z = -sit * 0.15 - 0.04 * walkAmt;
+  m.legs[1].rotation.z = sit * 0.15 + 0.04 * walkAmt;
 
-  // torso lean: hunched forward when hunting, slumped when sitting
-  const breathe = Math.sin(time * 1.3) * 0.015;
-  m.torso.rotation.x = 0.12 + p.hunch * 0.35 + walkAmt * 0.08 - sit * 0.25 + breathe - p.stagger * 0.4 + p.grab * 0.15;
-  m.torso.rotation.z = -c * 0.05 * walkAmt + sit * 0.12 + p.stagger * Math.sin(time * 9) * 0.1;
+  // ---- torso: hunched when hunting, slumped asleep, thrown back when stunned. Spring = momentum.
+  const lean = 0.12 + p.hunch * 0.35 + walkAmt * 0.08 + run * 0.18 - sit * 0.25 + breath * 0.018
+    - stag * 0.4 + grab * 0.15 + p.reach * 0.2 + fall * 0.04;
+  m.torso.rotation.x = spring(A, 'tx', lean, dt, 40, 9);
+  m.torso.rotation.y = -s * (0.09 + run * 0.06) * walkAmt; // counter-twist against the hips
+  m.torso.rotation.z = -c * 0.05 * walkAmt + sit * 0.12 + stag * Math.sin(time * 9) * 0.1 - turn * 0.06;
 
-  // arms drag and swing loosely
+  // ---- arms: too long, too loose. They swing late and overshoot; stunned, he clutches his head.
   for (let i = 0; i < 2; i++) {
     const a = m.arms[i];
     const side = i === 0 ? -1 : 1;
-    const swing = (i === 0 ? -s : s) * 0.4 * walkAmt;
-    const lag = Math.sin(phase - 0.6) * 0.15 * walkAmt;
-    const reach = Math.max(p.grab, p.reach);
-    a.shoulder.rotation.x = swing - p.hunch * 0.3 - reach * 1.55 - sit * 0.2;
-    a.shoulder.rotation.z = side * (0.12 + sit * 0.35 + reach * 0.1);
-    a.elbow.rotation.x = -0.25 - lag - reach * 0.2 - p.hunch * 0.2 + sit * 0.3;
-    a.paw.rotation.x = 0.2 + Math.sin(time * 2 + i) * 0.05 + reach * 0.5;
+    const swing = (i === 0 ? -s : s) * (0.4 + run * 0.35) * walkAmt;
+    // stunned (stag): upper arms out and forward, forearms folded back so the paws clutch his head
+    const sx = swing * (1 - stag) - p.hunch * 0.3 - reach * 1.55 - sit * 0.2 - stag * 1.25 + breath * 0.03 * (1 - walkAmt);
+    a.shoulder.rotation.x = spring(A, 'sx' + i, sx, dt, 45, 8);
+    a.shoulder.rotation.z = side * (0.12 + sit * 0.35 + reach * 0.1 + stag * 0.6 + run * 0.08);
+    // the forearm drags behind the upper arm's motion
+    const ex = -0.25 - p.hunch * 0.2 + sit * 0.3 - reach * 0.2 - stag * 2.0 - run * 0.35 - (A['sx' + i + 'v'] || 0) * 0.06;
+    a.elbow.rotation.x = spring(A, 'ex' + i, ex, dt, 30, 6);
+    // needle claws tremble while he holds you
+    a.paw.rotation.x = 0.2 + Math.sin(time * 2 + i) * 0.05 + reach * 0.5 + grab * Math.sin(time * 31 + i * 2) * 0.08;
+    a.paw.rotation.z = side * stag * 0.4;
   }
 
-  // head: bobbing, listening tilt, slumped when dormant
-  // when grabbing he bends his head down to your face (positive x = chin down)
-  m.neck.rotation.x = -p.hunch * 0.35 + sit * 0.45 + p.grab * 0.3 + Math.sin(phase * 2) * 0.03 * walkAmt;
-  m.head.rotation.z = 0.16 + p.listen * 0.42 + sit * 0.3 + Math.sin(time * 0.7) * 0.03;
-  m.head.rotation.y = p.look;
-  m.head.rotation.x = p.listen * 0.12;
-  m.earR.rotation.z = Math.sin(time * 1.7 + phase) * 0.25 - 0.2;
-  m.jaw.rotation.x = p.jaw * 0.85;
+  // ---- head
+  // idle twitches: every few seconds a sharp little jerk that eases back (rarer asleep, none mid-stride)
+  A.twT -= dt;
+  if (A.twT <= 0) {
+    A.twT = (sit > 0.5 ? 5 : 1.8) + Math.random() * 4;
+    A.twX = (Math.random() - 0.5) * 0.25; A.twY = (Math.random() - 0.5) * 0.5; A.twZ = (Math.random() - 0.5) * 0.4;
+  }
+  const decay = Math.exp(-dt * 6);
+  A.twX *= decay; A.twY *= decay; A.twZ *= decay;
+  const tw = (1 - walkAmt * 0.75) * (1 - grab) * (sit > 0.5 ? 0.4 + stir : 1);
+  // sniffing: snout up, short quick pulls
+  const pulls = sniff * Math.max(0, Math.sin(time * 26)) * 0.08;
+  // the head bobs a beat behind the body; asleep, it lifts as noise builds (stir)
+  const neck = -p.hunch * 0.35 + sit * 0.45 * (1 - stir * 0.75) + grab * 0.3 + run * 0.1 - sniff * 0.3
+    + Math.sin(phase * 2) * (0.03 + run * 0.04) * walkAmt + fall * 0.05;
+  m.neck.rotation.x = spring(A, 'nx', neck, dt, 55, 7);
+  m.head.rotation.z = 0.16 + p.listen * 0.42 + sit * 0.3 * (1 - stir * 0.6) + Math.sin(time * 0.7) * 0.03
+    + A.twZ * tw + stag * Math.sin(time * 7) * 0.15;
+  m.head.rotation.y = p.look + A.twY * tw + stag * Math.sin(time * 6.3) * 0.35;
+  m.head.rotation.x = p.listen * 0.12 + A.twX * tw - pulls;
+  m.earR.rotation.z = Math.sin(time * 1.7 + phase) * 0.25 * (1 + run) - 0.2 + p.listen * 0.25 + Math.sin(phase * 2) * 0.15 * walkAmt;
+  // jaw: hangs a little open while he runs, opens wide on the grab
+  m.jaw.rotation.x = p.jaw * 0.85 + run * 0.08 * (0.5 + 0.5 * Math.sin(time * 5)) + sniff * 0.05;
 }

@@ -270,7 +270,7 @@ export class Chapter1 {
 
     const pl = g.player;
     pl.mode = 'walk'; pl.hidden = null; pl.forcedLook = null; pl.lookLimits = null; pl.stamina = 1; pl.breath = 1;
-    pl.glide = null;
+    pl.glide = null; pl.creepOn = false;
     this.drawerSnap = true;
     if (cp === 'start') {
       setDoor(H.doorFront, 1.4, false);

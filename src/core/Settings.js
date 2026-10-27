@@ -15,6 +15,9 @@ export const DEFAULTS = {
   headBob: true,
   grain: true,
   subtitles: true,
+  subSize: 'normal',     // 'normal' | 'large'
+  reduceFlash: false,    // softer lightning, red flashes, chromatic aberration and camera shake
+  creepMode: 'hold',     // 'hold' | 'toggle'
   quality: 'high',
   autoRes: true,
   showFps: true,

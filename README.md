@@ -23,7 +23,7 @@ Use a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari 16+). Headpho
 |---|---|
 | W A S D | Move |
 | Shift | Run (loud, drains stamina) |
-| C | Creep (quiet). Not Ctrl: Ctrl+W would close the tab |
+| C | Creep (quiet). Hold, or set it to toggle in Settings. Not Ctrl: Ctrl+W would close the tab |
 | Mouse | Look |
 | Q | Knock: make a sound on purpose to see |
 | E | Interact. On doors: **tap** to open fast and loud, **hold** to open slowly and quietly |
@@ -31,6 +31,7 @@ Use a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari 16+). Headpho
 | Space | Hold your breath. When he's close he can hear you breathing |
 | Tab | Evidence (documents and tapes you've found) |
 | A / D, mashed | Break free when grabbed |
+| Esc | Pause, and Esc again to resume. Enter retries after a death |
 
 All keys can be rebound in **Settings → Controls**.
 

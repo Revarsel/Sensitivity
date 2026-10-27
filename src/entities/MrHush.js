@@ -130,6 +130,7 @@ export class MrHush {
     this.voice.cut();
     // turn the head toward it
     this.lookTarget = Math.atan2(o.x - this.x, o.z - this.z) - this.heading;
+    this.alert = 1; // the head snaps round instead of easing
     this.awareness = Math.min(1, this.awareness + intensity * 0.8);
 
     if (o.kind === 'hide' && fromPlayer) this.heardEnter = { spot: o.spot, t: this.g.time };
@@ -226,7 +227,7 @@ export class MrHush {
       else this.smellT = Math.max(0, this.smellT - dt * 0.5);
       if (this.smellT > 2.5) {
         this.smellT = 0;
-        g.audio.play('hush_sniff', { pos: this.headPos, gain: 1 });
+        this.sniff(1);
         this.voice.cut();
         this.goTo(pl.pos.x, pl.pos.z, 'investigate');
       }
@@ -287,7 +288,7 @@ export class MrHush {
         this.timer -= dt;
         if (this.canTrack(dP, 4.5)) { this.goTo(pl.pos.x, pl.pos.z, 'hunt'); break; }
         this.lookTarget = Math.sin(this.stateTime * 1.4) * 0.9;
-        if (Math.floor(this.stateTime * 0.8) !== Math.floor((this.stateTime - dt) * 0.8)) g.audio.play('hush_sniff', { pos: this.headPos, gain: 0.7 });
+        if (Math.floor(this.stateTime * 0.8) !== Math.floor((this.stateTime - dt) * 0.8)) this.sniff(0.7);
         if (this.timer <= 0) {
           const spot = this.pickHideToCheck();
           if (spot) {
@@ -357,7 +358,12 @@ export class MrHush {
     P.hunch += (((this.state === 'hunt' ? 1 : 0) + (this.nearDoorway() ? 0.9 : 0)) - P.hunch) * Math.min(1, dt * 4);
     if (this.state !== 'check') P.reach = Math.max(0, P.reach - dt * 3);
     const lt = Math.max(-1.1, Math.min(1.1, Math.atan2(Math.sin(this.lookTarget), Math.cos(this.lookTarget))));
-    P.look += (lt - P.look) * Math.min(1, dt * 3);
+    this.alert = Math.max(0, (this.alert || 0) - dt * 2.5);
+    P.look += (lt - P.look) * Math.min(1, dt * (3 + this.alert * 12));
+    P.sniff = Math.max(0, P.sniff - dt * 1.4);
+    // asleep: the head lifts as noise builds toward waking him (a visible warning)
+    const stirT = this.state === 'dormant' && this.wakeable ? Math.min(1, (this.sleepNoise || 0) / 1.4) : 0;
+    P.stir += (stirT - P.stir) * Math.min(1, dt * 2);
     if (this.state !== 'search' && this.state !== 'dormant') this.lookTarget *= Math.exp(-dt * 1.2);
 
     // contact
@@ -367,7 +373,7 @@ export class MrHush {
         // he bumps into something warm: stops, sniffs, then lunges
         if (!this.touchT) {
           this.touchT = 0.001;
-          this.g.audio.play('hush_sniff', { pos: this.headPos, gain: 1 });
+          this.sniff(1);
           this.lookTarget = Math.atan2(pl.pos.x - this.x, pl.pos.z - this.z) - this.heading;
         }
         this.touchT += dt;
@@ -465,6 +471,12 @@ export class MrHush {
   }
   leaving() { return this.g.time < (this.leaveUntil ?? 0); }
 
+  // sniff sound + the head-up, quick-pulls sniff animation
+  sniff(gain = 1) {
+    this.g.audio.play('hush_sniff', { pos: this.headPos, gain });
+    this.m.pose.sniff = 1;
+  }
+
   // after the player breaks free
   stun() {
     this.setState('stunned', { timer: 4 });
@@ -519,6 +531,13 @@ export class MrHush {
   }
 
   _sync(dt = 0) {
+    // turn rate for leaning into turns (+ = turning left)
+    if (dt > 0) {
+      const dh = Math.atan2(Math.sin(this.heading - (this._prevHeading ?? this.heading)), Math.cos(this.heading - (this._prevHeading ?? this.heading)));
+      const P = this.m.pose;
+      P.turn += (Math.max(-1, Math.min(1, dh / dt / 3)) - P.turn) * Math.min(1, dt * 6);
+    }
+    this._prevHeading = this.heading;
     const r = this.root;
     r.position.set(this.x, 0, this.z);
     r.rotation.y = this.heading;
