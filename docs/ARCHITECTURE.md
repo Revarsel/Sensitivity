@@ -15,7 +15,7 @@ Stack: Three.js r186, Vite 8, plain ES modules, WebGL2, Web Audio. Entry: `index
 | `src/core/Keybinds.js` | `ACTIONS` list (id, name, group, default key), `defaultBinds()`, fixed `ALIASES` (arrows etc.), `keyLabel(code)`. Add new rebindable actions here. |
 | `src/core/Collision.js` | `resolveCircle()` (player circle vs AABBs plus door OBBs), `rayBoxes2D()`. |
 | `src/core/Settings.js` | Settings defaults (incl. `keybinds`), `QUALITY`, `VOLUME_SCALE` (slider 100% = original mix, e.g. music ×0.8), localStorage (`settings.v2`). |
-| `src/render/SoundField.js` | 25 cm grid over the house. Walls and doors are rasterised in. `compute(x,z,mode)` = 16-neighbour Dijkstra **geodesic distance field** (mode 0 = visual, closed doors block; mode 1 = hearing, closed doors add cost). Cached. `wallsBetween()` for audio occlusion. |
+| `src/render/SoundField.js` | 25 cm grid over the house. Walls and doors are rasterised in. `compute(x,z,mode,maxDist)` = 16-neighbour Dijkstra **geodesic distance field** (mode 0 = visual, closed doors block; mode 1 = hearing, closed doors add cost). It is cached per start cell, mode and door state. **Perf-critical** (runs for every sound). It uses float64 distances plus a done-flag so each cell expands once (float32 made it ~70 ms). It stops at `maxDist` (callers pass the sound radius + 0.5), so a full-house field takes about 2 ms and a footstep far less. `MrHush.hear()` skips it when the straight-line distance already exceeds his reach. `wallsBetween()` for audio occlusion. |
 | `src/render/Pulses.js` | `PulseSystem`: up to `MAX_PULSES=24` active pulses. Each pulse's distance field is written into a half-float DataTexture (rows per slot). `PULSE` colour ids: PLAYER (ice), HUSH (red), WORLD (amber), LIGHT. `createSharedUniforms()`. |
 | `src/render/RevealMaterial.js` | All shaders. `revealMaterial({color, pattern, map, cutout, tint, emissive})` (GLSL3 RawShaderMaterial writing 3 MRT targets). `PAT` procedural patterns (floorboard, wallpaper, tile, fur, blood…). Also `cloneReveal`, `setHighlight`, `dustMaterial`, `glowMaterial`, `glassMaterial` (additive, see-through). |
 | `src/render/Pipeline.js` | Post: G-buffer (3 HalfFloat MRT) → edge composite (outlines and amber highlight) → FXAA → UnrealBloom → final grade (ACES, grain, CA, fear vignette, `uTunnel` out-of-breath tunnel vision, red flash, fade, **monitor night-vision mode**). `pipeline.fx` = final uniforms. |
@@ -126,6 +126,11 @@ Settings sheet has tabs (General / Controls). `UI.renderControls` lists `ACTIONS
 - Drive it from `page.evaluate`: `g.bootClick()`, `g.beginPlay('start'|'awake'|'batteries'|'holdout')`, `g.simulate(sec)`, `g.player.teleport(x,z,yaw,pitch)`, `g.sound({...})`, then `g.renderFrame()` (returns a PNG data URL) or call `g.render(1/30)` before `page.screenshot()` to capture the UI too.
 - Logic tests are fastest without rendering: simulate with a bot policy and log `hushState` events.
 - Note: `camera.matrixWorld` only updates on render. Teleport, then simulate, then render.
+
+## 9b. Performance notes
+- Freezes while playing were the sound-field Dijkstra (see SoundField). Profile CPU in the sandbox by timing `g.update(1/30)` per frame and wrapping subsystem methods. Rendering times under SwiftShader are meaningless.
+- `Game.prewarmGPU()` uploads all textures and compiles shaders at load, so first views don't hitch. Call it again if a chapter adds textured meshes later.
+- GPU load: shaded pixels are capped at 2.4M (`Game.resize`) times the `QUALITY` scale. The reveal shader loops over active pulses, so cost grows with longer pulse `linger`.
 
 ## 10. Known gaps / ideas
 - No voice acting (tapes use subtitles and hiss). No microphone input. Chapter 2 (St. Agnes, flooded hospital) is not started.
