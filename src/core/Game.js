@@ -415,16 +415,6 @@ export class Game {
   onKey(e) {
     if (this.state === 'boot') return;
     const k = e.code;
-    // death screen: Enter / Space / R retries from the checkpoint
-    if (this.state === 'dead') {
-      // ignore held/auto-repeating keys and anything in the first 0.7 s (no accidental instant retries)
-      const ready = this.ui.el('death').classList.contains('on') && !e.repeat && performance.now() - (this.deathShownAt || 0) > 700;
-      if (ready && (k === 'Enter' || k === 'NumpadEnter' || k === 'Space' || k === 'KeyR')) {
-        e.preventDefault();
-        this.deathAction('retry');
-      }
-      return;
-    }
     if (k === 'Escape') {
       if (this.docOpen) { this.closeDoc(); return; }
       if (this.sheet) { this.audio.play('ui_back', { bus: 'ui' }); this.closeSheet(); return; }
@@ -830,7 +820,6 @@ export class Game {
         : [['He heard you.', 'The humming starts again, somewhere in the house.'], ['It found you.', 'Mr. Hush is sewn shut. He never needed to see you.'], ['Too loud.', 'In this house, every sound is a confession.']];
       const [t, s] = pool[Math.floor(Math.random() * pool.length)];
       this.ui.death(CHECKPOINTS[this.save.cp || 'start'], t, s);
-      this.deathShownAt = performance.now();
     }, 900);
   }
 

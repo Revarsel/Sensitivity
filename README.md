@@ -31,7 +31,7 @@ Use a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari 16+). Headpho
 | Space | Hold your breath. When he's close he can hear you breathing |
 | Tab | Evidence (documents and tapes you've found) |
 | A / D, mashed | Break free when grabbed |
-| Esc | Pause, and Esc again to resume. Enter retries after a death |
+| Esc | Pause, and Esc again to resume |
 
 All keys can be rebound in **Settings → Controls**.
 

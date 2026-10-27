@@ -125,7 +125,6 @@ Settings sheet has tabs (General / Controls). General: left column Controls (inc
 ## 8c. Small but deliberate decisions
 - **Pause and resume** (`Game.pause`): unpausing needs the mouse captured again. A click (Resume) captures immediately. **Esc on the pause menu** also unpauses, but browsers refuse capture on Esc, so `resumePending` holds the game frozen behind `#resume-veil` ("Click to continue") until a click captures (`onLockChange(true)` → `resetPause()`). Esc on the veil returns to the menu. The Esc that paused is ignored for 300 ms. A capture that lands while paused is released again. Always use `resetPause()` rather than `paused = false`.
 - **Hidden tab** (`visibilitychange`): pauses play or holdout and suspends the AudioContext; it resumes when visible.
-- **Death screen**: Enter, Space or R retries, ignoring key repeats and the first 0.7 s (`deathShownAt`).
 - **Pause screen controls list**: `Game.controlsRef()` uses the current bindings and switches to holdout keys in the holdout. **Evidence notice**: `Game.evidenceNotice()` shows "Evidence n of N · Tab to review".
 - **Mr. Hush animation drivers** (`MrHush.js`): `sniff(gain)` plays the sound and sets `pose.sniff`. Hearing a sound sets `alert`, which snaps the head (`look` rate 3 + 12·alert). `pose.stir` follows `sleepNoise / 1.4` while dormant. `_sync` derives `pose.turn` from the heading change.
 - **Creep defaults to C, not Ctrl**, because browsers can't block Ctrl+W (close tab). `Settings.loadSettings()` migrates old saves from `ControlLeft` to `KeyC`. There's no Ctrl alias.

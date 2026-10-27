@@ -772,8 +772,6 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 #death .wrap { text-align: left; width: min(820px, 84vw); }
 #death h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(54px, 7vw, 96px); margin: 14px 0 12px; color: var(--bone); }
 #death p { font-style: italic; color: var(--bone-dim); font-size: 19px; margin: 0 0 44px; }
-#death .death-keys { margin-top: 26px; display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bone-dim); }
-#death .death-keys kbd { margin: 0; }
 
 #end { background: var(--void); display: grid; place-items: center; overflow: hidden; }
 #end .wrap { width: min(640px, 86vw); }

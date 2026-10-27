@@ -154,7 +154,6 @@ export class UI {
       <li><button data-act="retry"><span class="num">i.</span><span class="rule"></span>Try again</button></li>
       <li><button data-act="quit"><span class="num">ii.</span><span class="rule"></span>Quit to menu</button></li>
     </ul>
-    <div class="death-keys"><kbd>Enter</kbd>Try again</div>
   </div>
 </section>
 
