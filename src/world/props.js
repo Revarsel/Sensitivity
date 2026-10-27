@@ -434,11 +434,7 @@ export function rockingChair(b, M) {
   b.rbox(M.wood, 0, 0.45, -0.02, 0.5, 0.04, 0.45, 0.01);
   for (let i = 0; i < 6; i++) b.box(M.wood, -0.18 + i * 0.072, 0.48, -0.21, -0.16 + i * 0.072, 1.0, -0.19);
   b.box(M.wood, -0.26, 0.98, -0.22, 0.26, 1.06, -0.17);
-  // a small plush in the seat, slumped, with no face
-  b.sphere(M.plushSmall, 0, 0.6, -0.05, 0.13, 1, 1.05, 0.9, 12);
-  b.sphere(M.plushSmall, 0, 0.82, -0.08, 0.1, 1, 1, 0.95, 12);
-  b.sphere(M.plushSmall, -0.07, 0.9, -0.08, 0.035, 1, 1, 0.6, 8);
-  b.sphere(M.plushSmall, 0.07, 0.9, -0.08, 0.035, 1, 1, 0.6, 8);
+  // (Thimble, the porcelain doll, sits in it: see entities/Thimble.js)
 }
 
 export function block(b, mat, s = 0.08) {

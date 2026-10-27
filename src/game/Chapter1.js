@@ -55,6 +55,9 @@ export class Chapter1 {
     doc('diane_1', add(notebook(), 12.05, 0.785, 9.95, -0.3), 'Read the journal');
     doc('june_1', add(wallSheet(M.drawingBigger, 0.6, 0.44), 12.4, 1.45, 0.087, 0), 'Look at the drawing');
     doc('june_2', add(wallSheet(M.drawingListens, 0.34, 0.26), 16.093, 1.35, 7.5, -Math.PI / 2), 'Look at the drawing');
+    // Thimble (the doll in June's rocking chair): his care card by the baby monitor, Diane's page by his chair
+    doc('thimble_card', add(paper(0.12, 0.17, M.paper), 16.2, 0.893, 4.6, Math.PI - 0.3), 'Read the card');
+    doc('diane_4', add(notebook(), 15.55, 0.0, 1.45, 0.7), 'Read the journal');
     // notes taped to doors (hotspots in front of the door's paper)
     this.noteJune = I.add({ id: 'lore:note_june', obj: hotspot(12.0, 1.45, 5.09, 0.24, 0.3, 0.04), prompt: () => ['E', 'Read the note'], enabled: () => H.doorJune.isClosed, use: () => { g.openDoc('note_june'); this.onReadJuneNote(); } });
     I.add({ id: 'lore:note_basement', obj: hotspot(16.9, 1.45, 8.5, 0.04, 0.3, 0.24), prompt: () => ['E', 'Read the note'], use: () => g.openDoc('note_basement') });
@@ -271,6 +274,7 @@ export class Chapter1 {
     const pl = g.player;
     pl.mode = 'walk'; pl.hidden = null; pl.forcedLook = null; pl.lookLimits = null; pl.stamina = 1; pl.breath = 1;
     pl.glide = null; pl.creepOn = false;
+    g.holdout.thimble.reset();
     this.drawerSnap = true;
     if (cp === 'start') {
       setDoor(H.doorFront, 1.4, false);
@@ -601,9 +605,10 @@ export class Chapter1 {
       g.audio.play('drip', { pos: { x: 13.0, y: 0.95, z: 13.45 }, gain: 0.5, jitter: 0.2 });
       g.sound({ x: 13.0, z: 13.3, y: 0.95, radius: 1.3, strength: 0.45, color: PULSE.WORLD, source: 'world', speed: 5 });
     }
-    // the rocking chair rocks on its own
+    // the rocking chair rocks on its own (in the holdout Thimble drives it)
     this.nextRock -= dt;
-    if (this.nextRock <= 0) {
+    if (g.holdout.active) this.rockT = 0;
+    else if (this.nextRock <= 0) {
       this.nextRock = 8 + Math.random() * 10;
       this.rockT = 3.2;
       g.audio.play('creak_floor', { pos: { x: 16.2, y: 0.5, z: 0.85 }, gain: 0.45, rate: 1.3 });

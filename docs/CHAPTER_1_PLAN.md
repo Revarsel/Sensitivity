@@ -144,13 +144,16 @@ The player sits on the floor of June's room. They can look around but can't walk
 |---|---|---|
 | **Baby monitor** (Space, keys 1–3) | Night-vision feeds of the **Hallway**, **Living room** and **Kitchen** | Drains battery while raised. You can't watch the door or window. |
 | **Talk-back lullaby** (L on the monitor) | Plays a lullaby through that room's monitor and lures him there | Large battery cost. Doesn't work if he's already at a threshold. |
-| **Bedroom door** (look + hold mouse) | Hold it shut when he's outside | You can't use the monitor while holding |
-| **Window shutters** (look + hold mouse) | Hold them shut when he's outside the window | Same |
+| **Bedroom door** (W A S D, prompted) | The door starts closed. After a warning he forces it open; push back with the key that pops up. Win and it slams shut while he bangs on it, then leaves. | Wrong keys let him in further. Harder each hour. |
+| **Window shutters** (look + hold mouse) | He appears at the window with almost no warning: about 2 seconds to get the shutters shut, then hold them while he tries them | You can't use the monitor while holding |
+| **June's music box** (L, monitor down) | Calms **Thimble**, the porcelain doll in the rocking chair | It is Mr. Hush's song: it brings him straight to June's room |
+
+**Thimble.** Cradle & Co.'s porcelain rocking companion, sold with the Hushaby. At 3:00 his chair has turned to face you. He grows restless when nobody sings: his shadow on the wall behind the chair grows toward the ceiling, the chair rocks harder, and a slow heartbeat thud from the chair speeds up (each beat lights the wall red). If he gets too big, he comes for you.
 
 - Mr. Hush moves between rooms on a node graph and gets more aggressive each hour.
 - He reaches the **window** by leaving through the kitchen back door (visible on the kitchen feed), then is unseen in the yard.
 - **Cues:** humming direction, heavy breathing and scratching at the door, tapping and *June's voice* at the window.
-- If he gets in: the struggle. Escape once by scrambling under the bed. The second time, restart the holdout.
+- If anything gets in (Mr. Hush, or Thimble), you die and the holdout restarts. There are no second chances in June's room.
 - **Dawn (6:00):** the clock chimes six, grey light fills the room, and for the first time the player sees June's room clearly. Halloway's last tape is hidden in the monitor's battery compartment.
 
 ## 8. Lore (Chapter 1)
@@ -170,6 +173,8 @@ The player sits on the floor of June's room. They can look around but can't walk
 | D9 | Clipping: St. Agnes "Quiet Night" pilot | Diane's dresser |
 | D10 | Note on the basement door | Kitchen |
 | D11 | Note on June's door | Hallway |
+| D12 | Thimble care card ("must be sung to sleep every night") | June's room, dresser by the monitor |
+| D13 | Diane's journal, Oct 1996: the night she forgot Thimble's song | June's room, by the rocking chair |
 | TV | Hushaby TV commercial (1995) | Living room TV |
 
 ## 9. Presentation

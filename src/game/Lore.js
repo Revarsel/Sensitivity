@@ -18,6 +18,32 @@ export const DOCS = {
 </ul>
 <p class="sign">Sleep tight. We're listening.<br><span>Cradle &amp; Co. &middot; Harrow Falls</span></p>`,
   },
+  thimble_card: {
+    title: 'Thimble care card',
+    style: 'card',
+    place: 'June’s room',
+    body: `<h3>Meet Thimble.</h3>
+<p>Every Hushaby needs a friend. Thimble is our hand-finished porcelain <em>rocking companion</em>. He keeps your little one company from the rocking chair, so they never have to fall asleep alone.</p>
+<p class="center"><em>Thimble sleeps when your child sleeps.<br>Thimble wakes when the house is quiet.</em></p>
+<h4>Bedtime with Thimble</h4>
+<ul>
+<li>Thimble must be sung to sleep every night. Wind the enclosed music box and let it play to the end.</li>
+<li>The music box plays the same lullaby as your Hushaby. They are meant to be together.</li>
+<li>If Thimble seems restless, or his shadow seems larger than he is, the song was missed. Play it again at once.</li>
+<li>Do not leave Thimble facing the bed.</li>
+</ul>
+<p class="sign">Rock-a-bye. We're listening.<br><span>Cradle &amp; Co. &middot; Harrow Falls &middot; Porcelain. Not for children under 3.</span></p>`,
+  },
+  diane_4: {
+    title: 'Diane’s journal: October 1996',
+    style: 'diane',
+    place: 'June’s room',
+    body: `<p class="date">October 1996</p>
+<p>The doll came in the same box as the bear. Thimble. June won't sleep until he's had his song. Every night: wind the music box, let it play right to the end, kiss the bear, kiss the doll. If I'm tired and stop it early, she cries until I start it again.</p>
+<p>Tuesday I forgot. Ellis had a fever and I was up with him all night. In the morning the rocking chair was turned to face her bed, and the shadow on the wall behind it went all the way up to the ceiling. The lamp was off.</p>
+<p>June said, "He doesn't like it quiet, Mama. When it's quiet he gets big." Then she said the bear always comes when the song plays.</p>
+<p>I didn't ask her what she meant. I wish I had.</p>`,
+  },
   police_report: {
     title: 'Missing person report, 1996',
     style: 'form',
@@ -194,7 +220,7 @@ export const TAPES = {
 
 export const LORE_ORDER = [
   'police_report', 'recall_notice', 'hushaby_card', 'tape_orientation', 'tv_ad', 'note_june', 'diane_3', 'clipping',
-  'tape_diane', 'diane_2', 'june_1', 'diane_1', 'june_2', 'note_basement', 'tape_ellis',
+  'tape_diane', 'diane_2', 'june_1', 'diane_1', 'june_2', 'thimble_card', 'diane_4', 'note_basement', 'tape_ellis',
 ];
 
 export const OBJECTIVES = {

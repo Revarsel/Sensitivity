@@ -18,8 +18,8 @@ import { TAPES, LORE_ORDER, OBJECTIVES, CHECKPOINTS } from '../game/Lore.js';
 import { loadSettings, saveSettings, loadSave, writeSave, QUALITY, VOLUME_SCALE, DEFAULTS } from './Settings.js';
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-// seconds after breaking free during which a second grab is fatal (he is stunned for 4 of them)
-const RECATCH_WINDOW = 10;
+// seconds after breaking free during which a second grab is fatal (he is stunned for the first 4)
+const RECATCH_WINDOW = 45;
 // strength of the faint glow around the player (RevealMaterial near-field, 3 m)
 const NEAR_GLOW = 0.07;
 
@@ -474,7 +474,8 @@ export class Game {
   controlsRef() {
     const L = (a) => this.input.label(a);
     if (this.state === 'holdout') {
-      return [[L('monitor'), 'Baby monitor'], ['1 2 3', 'Rooms'], [L('lullaby'), 'Lullaby lure'], ['Mouse', 'Hold door / shutters']];
+      return [[L('monitor'), 'Baby monitor'], ['1 2 3', 'Rooms'], [L('lullaby'), 'Lure (monitor up)'], [L('lullaby'), 'Music box (monitor down)'],
+        [[L('forward'), L('left'), L('back'), L('right')].join(''), 'Push the door'], ['Mouse', 'Hold the shutters']];
     }
     return [
       [[L('forward'), L('left'), L('back'), L('right')].join(''), 'Move'],
@@ -740,7 +741,8 @@ export class Game {
     }, () => this.die());
   }
 
-  holdoutCaught(canEscape) {
+  // the holdout has no second chance: a short, unwinnable grab, then death
+  holdoutCaught() {
     const pl = this.player, h = this.hush;
     this.audio.play('jumpscare', { gain: 1.0, reverb: 0.2 });
     this.redFlash = 1;
@@ -748,14 +750,7 @@ export class Game {
     pl.forcedLook = { x: h.x, y: 1.9, z: h.z, speed: 14 };
     h.m.pose.jaw = 1; h.m.pose.grab = 1;
     if (this.holdout.monitorUp) this.holdout.toggleMonitor();
-    this.startStruggle(canEscape, () => {
-      pl.forcedLook = null;
-      h.m.pose.jaw = 0; h.m.pose.grab = 0;
-      this.audio.play('gasp', { gain: 0.9 });
-      this.subtitle('', 'You scramble under the bed. He loses you in the dark.', 3.4, true);
-      this.holdout.afterEscape();
-      pl.yaw = this.holdout.centerYaw();
-    }, () => this.die(true));
+    this.startStruggle(false, () => {}, () => this.die(true));
   }
 
   startStruggle(canEscape, onWin, onLose) {
@@ -800,7 +795,8 @@ export class Game {
     }
   }
 
-  die(holdout = false) {
+  // reason: 'thimble' when the doll killed you (holdout)
+  die(holdout = false, reason = null) {
     const pl = this.player;
     this.state = 'dead';
     pl.mode = 'locked';
@@ -815,8 +811,10 @@ export class Game {
     setTimeout(() => {
       this.fadeTarget = 1;
       this.input.exitLock();
-      const pool = holdout
-        ? [['Not until morning.', 'The door was never strong enough. Neither were you.']]
+      const pool = reason === 'thimble'
+        ? [['Nobody sang.', 'Thimble doesn’t like the quiet. He never did.'], ['Lights out.', 'Thimble was sung to sleep every night for fifteen years. Tonight, nobody remembered.']]
+        : holdout
+        ? [['Not until morning.', 'The door was never strong enough. Neither were you.'], ['He got in.', 'In June’s room there is nowhere left to hide.']]
         : [['He heard you.', 'The humming starts again, somewhere in the house.'], ['It found you.', 'Mr. Hush is sewn shut. He never needed to see you.'], ['Too loud.', 'In this house, every sound is a confession.']];
       const [t, s] = pool[Math.floor(Math.random() * pool.length)];
       this.ui.death(CHECKPOINTS[this.save.cp || 'start'], t, s);
@@ -846,6 +844,7 @@ export class Game {
         pl.shake = 0.8;
       }],
       [10.0, () => this.clockChime(3)],
+      [11.4, () => this.ui.subs('June', 'And sing to Thimble, Ellis. He gets big when it’s quiet.')],
       [13.5, () => { this.fadeTarget = 1; }],
       [15.0, () => { this.startHoldout(); this.fadeTarget = 0; }],
     ];
@@ -859,7 +858,10 @@ export class Game {
     this.lastEscape = -99;
     this.holdout.begin();
     this.ui.card('3:00 AM', 'Until dawn', 3800);
-    setTimeout(() => { if (this.state === 'holdout') this.ui.hint('<span><kbd>Space</kbd>Baby monitor</span><span><kbd>1 2 3</kbd>Rooms</span><span><kbd>L</kbd>Lullaby lure</span><span><kbd>Hold mouse</kbd>Hold the door or shutters</span>', 9000); }, 4200);
+    // two short hints: the monitor first, then the three threats
+    const L = (k) => this.input.label(k);
+    this.chapter.at(4.2, () => { if (this.state === 'holdout') this.ui.hint(`<span><kbd>${L('monitor')}</kbd>Baby monitor</span><span><kbd>1 2 3</kbd>Rooms</span><span><kbd>${L('lullaby')}</kbd>Lure him away (monitor up)</span>`, 7000); });
+    this.chapter.at(12.5, () => { if (this.state === 'holdout') this.ui.hint(`<span><kbd>${[L('forward'), L('left'), L('back'), L('right')].join('')}</kbd>Push back the door</span><span><kbd>Hold mouse</kbd>Shutters</span><span><kbd>${L('lullaby')}</kbd>Music box for Thimble</span>`, 8000); });
   }
 
   clockChime(n) {

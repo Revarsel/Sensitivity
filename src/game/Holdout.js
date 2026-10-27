@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PULSE } from '../render/Pulses.js';
+import { Thimble } from '../entities/Thimble.js';
 
 const NODES = {
   LIVING: { x: 4.3, z: 11.0 },
@@ -33,11 +34,16 @@ const CAMS = [
 ];
 
 const HOUR_SEC = 80;
+// per hour (3, 4, 5 AM). delay: warning at the door before he starts opening it.
+// fight: door push speed (gap/s) and pushes needed. react: seconds to get the shutters shut.
+// rise: Thimble's agitation per second.
 const PARAMS = [
-  { interval: 6.5, aggr: 0.45, delay: 6.2 },
-  { interval: 5.0, aggr: 0.6, delay: 5.0 },
-  { interval: 4.0, aggr: 0.76, delay: 4.0 },
+  { interval: 6.5, aggr: 0.45, delay: 6.2, push: 0.33, need: 8, react: 2.5, rise: 0.0105 },
+  { interval: 5.0, aggr: 0.6, delay: 5.0, push: 0.35, need: 10, react: 2.1, rise: 0.0135 },
+  { interval: 4.0, aggr: 0.76, delay: 4.0, push: 0.37, need: 12, react: 1.75, rise: 0.017 },
 ];
+const FIGHT_KEYS = ['forward', 'left', 'back', 'right']; // W A S D by default (rebindable)
+const PUSH_BACK = 0.07, WRONG_KEY = 0.05, WINDOW_HOLD = 2.4;
 
 export class Holdout {
   constructor(game) {
@@ -53,6 +59,8 @@ export class Holdout {
     this.seat = seat;
     this.doorYaw = Math.atan2(-(12.0 - seat.x), -(5.0 - seat.z));
     this.windowYaw = Math.atan2(-(16.9 - seat.x), -(2.5 - seat.z));
+    this.dollYaw = Math.atan2(-(16.2 - seat.x), -(0.85 - seat.z));
+    this.thimble = new Thimble(game, game.house.rocker);
   }
 
   begin() {
@@ -66,8 +74,9 @@ export class Holdout {
     this.lureCool = 0;
     this.lure = null;
     this.static = 0;
-    this.escapes = 1;
     this.holding = null;
+    this.fight = null;
+    this.drawn = 0;
     this.doorShake = 0;
     this.dawn = false;
     this.lastHour = -1;
@@ -81,7 +90,11 @@ export class Holdout {
     pl.fixedEyeY = this.seat.y;
     const center = this.centerYaw();
     pl.yaw = center;
-    pl.lookLimits = { yawCenter: center, yawMin: -1.42, yawMax: 1.42, pitchMin: -1.1, pitchMax: 0.7 };
+    // door on the right (-), window then Thimble's rocker on the left (+)
+    pl.lookLimits = { yawCenter: center, yawMin: -1.42, yawMax: 2.15, pitchMin: -1.1, pitchMax: 0.7 };
+    pl.forcedLook = null;
+    this.thimble.reset();
+    this.thimble.begin(this.seat.x, this.seat.z);
 
     // Mr Hush is driven by the holdout brain
     const h = g.hush;
@@ -121,6 +134,9 @@ export class Holdout {
     const g = this.g;
     g.ui.clock(false);
     g.ui.monitor(false);
+    g.ui.doorFight(false);
+    this.fight = null;
+    this.thimble.end();
     this.monitorUp = false;
     g.pipeline.fx.uMonitor.value = 0;
     if (this.lure) { this.lure.stop(); this.lure = null; }
@@ -146,8 +162,17 @@ export class Holdout {
       if (hour > 0 && hour < 3) g.clockChime(3 + hour);
     }
     const mins = Math.floor((this.time % HOUR_SEC) / HOUR_SEC * 60);
-    if (hour >= 3) { this.beginDawn(); return; }
+    // dawn waits for a death already under way
+    if (hour >= 3 && !['breach', 'caughtWait', 'thimble'].includes(this.mode)) { this.beginDawn(); return; }
     g.ui.clock(true, 3 + hour, mins);
+
+    // ---- Thimble: restless unless sung to; at full agitation he comes for you
+    if (this.mode === 'thimble') { this.updateThimbleKill(dt); return; }
+    if (this.thimble.update(dt, this.params.rise) && this.mode !== 'breach' && this.mode !== 'caughtWait') { this.thimbleKill(); return; }
+    if (this.drawn > 0) this.drawn -= dt;
+
+    // ---- the door fight takes over the controls
+    if (this.mode === 'doorFight') { this.updateDoorFight(dt); return; }
 
     // ---- monitor
     if (input.actHit('monitor')) this.toggleMonitor();
@@ -170,15 +195,15 @@ export class Holdout {
       g.ui.monitorState({ ch: this.channel, name: cam.name, time: `0${hh}:${String(mins).padStart(2, '0')}`, battery: this.battery, lure: this.lure && this.lure.alive, dead: this.battery <= 0 });
     }
 
-    // ---- holding the door / shutters (monitor must be down)
+    // ---- music box for Thimble (monitor down)
+    if (!this.monitorUp && input.actHit('lullaby')) this.singToThimble();
+
+    // ---- holding the shutters (monitor must be down)
+    const dYaw = (a) => Math.abs(Math.atan2(Math.sin(pl.yaw - a), Math.cos(pl.yaw - a)));
     let want = null;
-    if (!this.monitorUp && input.mouseDown(0)) {
-      const dYaw = (a) => Math.abs(Math.atan2(Math.sin(pl.yaw - a), Math.cos(pl.yaw - a)));
-      if (dYaw(this.doorYaw) < 0.55) want = 'door';
-      else if (dYaw(this.windowYaw) < 0.55) want = 'window';
-    }
+    if (!this.monitorUp && input.mouseDown(0) && dYaw(this.windowYaw) < 0.55) want = 'window';
     if (want !== this.holding) {
-      if (want) g.audio.play(want === 'door' ? 'door_creak_fast' : 'creak_floor', { pos: want === 'door' ? { x: 12, y: 1.1, z: 4.95 } : { x: 16.8, y: 1.4, z: 2.5 }, gain: 0.35, rate: 1.4 });
+      if (want) g.audio.play('creak_floor', { pos: { x: 16.8, y: 1.4, z: 2.5 }, gain: 0.35, rate: 1.4 });
       this.holding = want;
     }
     const sv = g.chapter.shutterV;
@@ -186,11 +211,9 @@ export class Holdout {
     if (Math.abs(sv - tgt) > 0.001) g.chapter.setShutters(sv + (tgt - sv) * Math.min(1, dt * (tgt ? 9 : 3)));
     // prompt
     if (!this.monitorUp) {
-      const dYaw = (a) => Math.abs(Math.atan2(Math.sin(pl.yaw - a), Math.cos(pl.yaw - a)));
-      if (this.holding === 'door') g.ui.setPrompt('Mouse', 'Holding the door');
-      else if (this.holding === 'window') g.ui.setPrompt('Mouse', 'Holding the shutters');
-      else if (dYaw(this.doorYaw) < 0.55) g.ui.setPrompt('Hold mouse', 'Hold the door shut');
-      else if (dYaw(this.windowYaw) < 0.55) g.ui.setPrompt('Hold mouse', 'Hold the shutters closed');
+      if (this.holding === 'window') g.ui.setPrompt('Mouse', 'Holding the shutters');
+      else if (dYaw(this.windowYaw) < 0.4) g.ui.setPrompt('Hold mouse', 'Hold the shutters closed');
+      else if (dYaw(this.dollYaw) < 0.45) g.ui.setPrompt(input.label('lullaby'), this.thimble.singing ? 'The music box is playing' : 'Wind the music box', 'He will hear it');
       else g.ui.setPrompt(input.label('monitor'), 'Raise the baby monitor');
     } else g.ui.setPrompt(null);
 
@@ -198,7 +221,7 @@ export class Holdout {
     const dj = g.house.doorJune;
     if (this.doorShake > 0) {
       this.doorShake -= dt;
-      dj.angle = Math.max(0, Math.sin(this.doorShake * 40) * 0.035 * this.doorShake * (this.holding === 'door' ? 0.4 : 1));
+      dj.angle = Math.max(0, Math.sin(this.doorShake * 40) * 0.035 * this.doorShake);
       dj._apply();
     }
 
@@ -271,11 +294,13 @@ export class Holdout {
         P.listen = Math.max(0, P.listen - dt);
         this.timer -= dt;
         if (this.timer <= 0) {
-          this.timer = p.interval * (0.7 + Math.random() * 0.6);
-          if (Math.random() < p.aggr) {
+          // the music box draws him: he comes straight for June's room, quicker
+          const drawn = this.drawn > 0;
+          this.timer = p.interval * (0.7 + Math.random() * 0.6) * (drawn ? 0.35 : 1);
+          if (drawn || Math.random() < p.aggr) {
             const table = this.goal === 'DOOR' ? TO_DOOR : TO_WINDOW;
             const next = ADJ[this.node].reduce((best, m) => (table[m] < table[best] ? m : best), ADJ[this.node][0]);
-            if (table[next] < table[this.node]) { this.mode = 'move'; this.moveTo(next); }
+            if (table[next] < table[this.node]) { this.mode = 'move'; this.moveTo(next, drawn ? 1.7 : 1.25); }
           } else if (Math.random() < 0.5) {
             const opts = ADJ[this.node].filter((m) => m !== 'DOOR' && m !== 'WINDOW');
             const next = opts[Math.floor(Math.random() * opts.length)];
@@ -289,6 +314,11 @@ export class Holdout {
           this.node = this.targetNode;
           if (this.node === 'DOOR') this.arriveDoor();
           else if (this.node === 'WINDOW') this.arriveWindow();
+          else if (this.node === 'YARD' && this.goal === 'WINDOW') {
+            // something brushes the glass: the only warning before the window
+            g.audio.play('knock', { pos: { x: 17.1, y: 1.4, z: 2.5 }, gain: 0.18, rate: 2.4 });
+            this.mode = 'idle'; this.timer = 0.6;
+          }
           else if (this.lureLinger && this.node === this.lureNode) { this.mode = 'linger'; this.timer = 9 + Math.random() * 3; this.lureLinger = false; }
           else { this.mode = 'idle'; this.timer = 0.6; }
         }
@@ -300,32 +330,59 @@ export class Holdout {
         this.timer -= dt;
         if (this.timer <= 0) { this.mode = 'idle'; this.timer = 1.5; }
         break;
-      case 'atDoor':
-      case 'atWindow': {
+      case 'atDoor': {
+        // the warning: sniffing, scratching, the handle trying. Then he starts to open it.
         this.timer -= dt;
         this.cueT -= dt;
-        const atDoor = this.mode === 'atDoor';
         if (this.cueT <= 0) {
           this.cueT = 1.1 + Math.random() * 0.9;
-          if (atDoor) {
-            g.audio.play(Math.random() < 0.5 ? 'door_locked' : 'creak_floor', { pos: { x: 12.0, y: 1.0, z: 5.1 }, gain: 0.7, rate: 0.9 });
-            g.sound({ x: 12.0, z: 4.7, y: 1.0, radius: 1.9, strength: 0.75, color: PULSE.HUSH, source: 'hush', euclid: true, speed: 8 });
-            this.doorShake = 0.4;
-          } else {
-            g.audio.play('knock', { pos: { x: 17.1, y: 1.4, z: 2.5 }, gain: 0.35, rate: 1.9 });
-            g.sound({ x: 17.35, z: 2.5, y: 1.45, radius: 2.1, strength: 0.8, color: PULSE.HUSH, source: 'hush', euclid: true, speed: 8 });
-            if (!this.whispered || Math.random() < 0.25) {
-              this.whispered = true;
-              const lines = ['Ellis. It’s cold out here.', 'Let me in, Ellis.', 'I can hear you breathing.', 'Ellis, open the window.'];
-              g.subtitle('June?', lines[Math.floor(Math.random() * lines.length)], 2.6, true);
-            }
-          }
+          g.audio.play(Math.random() < 0.5 ? 'door_locked' : 'creak_floor', { pos: { x: 12.0, y: 1.0, z: 5.1 }, gain: 0.7, rate: 0.9 });
+          g.sound({ x: 12.0, z: 4.7, y: 1.0, radius: 1.9, strength: 0.75, color: PULSE.HUSH, source: 'hush', euclid: true, speed: 8 });
+          this.doorShake = 0.4;
         }
+        if (this.timer <= 0) this.startDoorFight();
+        break;
+      }
+      case 'doorFight':
+        // he leans on the door (the push itself runs in updateDoorFight)
+        P.reach = 1; P.hunch = 1;
+        return 0;
+      case 'banging': {
+        // repelled: the door slammed on him. He hits it a few more times, then goes.
+        P.reach = 0.6;
+        this.timer -= dt;
         if (this.timer <= 0) {
-          const held = this.holding === (atDoor ? 'door' : 'window');
-          if (held) this.repelled(atDoor);
-          else this.breach(atDoor);
+          if (this.bangs > 0) {
+            this.bangs--;
+            this.timer = 0.55 + Math.random() * 0.35;
+            g.audio.play('door_slam', { pos: { x: 12, y: 1.2, z: 5.0 }, gain: 0.85, rate: 0.65 + Math.random() * 0.15 });
+            g.audio.play('boom', { pos: { x: 12, y: 1.2, z: 5.2 }, gain: 0.35 });
+            g.sound({ x: 12.0, z: 4.6, y: 1.2, radius: 3.2, strength: 0.9, color: PULSE.HUSH, source: 'hush', euclid: true, speed: 9 });
+            this.doorShake = 0.6;
+            g.player.shake = Math.max(g.player.shake, 0.45);
+            this.thimble.bump(0.03); // the noise doesn't help Thimble
+          } else this.retreat(true);
         }
+        break;
+      }
+      case 'atWindow': {
+        // short reaction: get the shutters shut, then keep them shut while he tries them
+        this.timer -= dt;
+        this.cueT -= dt;
+        const pushing = this.windowPhase === 'push';
+        if (this.cueT <= 0) {
+          this.cueT = pushing ? 0.3 + Math.random() * 0.15 : 0.7;
+          g.audio.play(pushing ? 'creak_floor' : 'knock', { pos: { x: 17.1, y: 1.4, z: 2.5 }, gain: pushing ? 0.6 : 0.4, rate: pushing ? 1.6 : 1.9 });
+          g.sound({ x: 17.35, z: 2.5, y: 1.45, radius: 2.1, strength: 0.8, color: PULSE.HUSH, source: 'hush', euclid: true, speed: 8 });
+          if (pushing) g.player.shake = Math.max(g.player.shake, 0.15);
+        }
+        if (!pushing) {
+          if (this.timer <= 0) {
+            if (this.holding === 'window') { this.windowPhase = 'push'; this.timer = WINDOW_HOLD; this.cueT = 0; }
+            else this.breach(false);
+          }
+        } else if (this.holding !== 'window') this.breach(false);
+        else if (this.timer <= 0) this.repelled(false);
         break;
       }
       case 'breach': {
@@ -367,29 +424,155 @@ export class Holdout {
   arriveWindow() {
     const g = this.g, h = g.hush;
     this.mode = 'atWindow';
-    this.timer = this.params.delay + 0.5;
-    this.cueT = 0.3;
-    this.whispered = false;
+    this.windowPhase = 'react';
+    this.timer = this.params.react; // short on purpose
+    this.cueT = 0;
     h.voice.cut();
     h.heading = -Math.PI / 2;
+    const lines = ['Ellis. It’s cold out here.', 'Let me in, Ellis.', 'I can hear you breathing.', 'Ellis, open the window.'];
+    g.subtitle('June?', lines[Math.floor(Math.random() * lines.length)], 2.2, true);
+  }
+
+  // ------------------------------------------------------------ the door fight
+  startDoorFight() {
+    const g = this.g, h = g.hush, p = this.params;
+    if (this.monitorUp) this.toggleMonitor();
+    this.holding = null;
+    this.mode = 'doorFight';
+    this.fight = { o: 0.14, prog: 0, need: p.need, push: p.push, key: null, cueT: 0, wrong: 0 };
+    this.nextFightKey();
+    g.player.forcedLook = { x: 12.0, y: 1.15, z: 5.0, speed: 7 };
+    g.audio.play('door_creak_fast', { pos: { x: 12, y: 1.1, z: 5.0 }, gain: 0.9, rate: 0.7 });
+    g.audio.play('hush_growl', { pos: h.headPos, gain: 0.8 });
+    g.player.shake = 0.6;
+    g.ui.setPrompt(null);
+  }
+
+  nextFightKey() {
+    const F = this.fight, opts = FIGHT_KEYS.filter((k) => k !== F.key);
+    F.key = opts[Math.floor(Math.random() * opts.length)];
+    F.keyAt = this.time;
+  }
+
+  updateDoorFight(dt) {
+    const g = this.g, input = g.input, F = this.fight;
+    F.o += F.push * dt;
+    for (const act of FIGHT_KEYS) {
+      if (!input.actHit(act)) continue;
+      if (act === F.key) {
+        F.o = Math.max(0, F.o - PUSH_BACK);
+        F.prog += 1 / F.need;
+        this.nextFightKey();
+        g.audio.play('block_hit', { pos: { x: 12, y: 1.1, z: 5.0 }, gain: 0.5, rate: 0.6 + Math.random() * 0.2 });
+        g.player.shake = Math.max(g.player.shake, 0.25);
+      } else {
+        F.o += WRONG_KEY;
+        F.wrong = 0.35;
+        g.audio.play('door_locked', { pos: { x: 12, y: 1.1, z: 5.0 }, gain: 0.5, rate: 0.8 });
+      }
+    }
+    F.wrong = Math.max(0, F.wrong - dt);
+    // the door: cracked open by his weight, shivering
+    const dj = g.house.doorJune;
+    dj.angle = Math.min(1, F.o) * 0.62 + Math.sin(this.time * 47) * 0.012;
+    dj._apply();
+    g.house.field.setDoorClosed(dj.id, F.o < 0.04);
+    // through the gap: scraping, breathing, red pulses
+    F.cueT -= dt;
+    if (F.cueT <= 0) {
+      F.cueT = 0.45 + Math.random() * 0.2;
+      g.audio.play('creak_floor', { pos: { x: 12, y: 1.0, z: 5.1 }, gain: 0.5, rate: 0.7 + F.o * 0.4 });
+      g.sound({ x: 12.0, z: 5.3, y: 1.2, radius: 1.6 + F.o * 2.2, strength: 0.6 + F.o * 0.5, color: PULSE.HUSH, source: 'hush', speed: 8 });
+    }
+    g.ui.doorFight(true, { key: g.input.label(F.key), keyAt: F.keyAt, gap: Math.min(1, F.o), prog: F.prog, wrong: F.wrong > 0 });
+    if (F.prog >= 1) this.winDoorFight();
+    else if (F.o >= 1) this.loseDoorFight();
+  }
+
+  winDoorFight() {
+    const g = this.g, dj = g.house.doorJune;
+    this.fight = null;
+    g.ui.doorFight(false);
+    g.player.forcedLook = null;
+    dj.angle = 0; dj.target = 0; dj._apply();
+    g.house.field.setDoorClosed(dj.id, true);
+    this.stopBreath();
+    g.audio.play('door_slam', { pos: { x: 12, y: 1.2, z: 5.0 }, gain: 1 });
+    g.sound({ x: 12.0, z: 4.6, y: 1.0, radius: 3.8, strength: 1, color: PULSE.HUSH, source: 'hush', euclid: true });
+    g.player.shake = 0.8;
+    this.doorShake = 0.8;
+    g.stats.repelled++;
+    this.mode = 'banging';
+    this.bangs = 3 + Math.min(2, this.hour);
+    this.timer = 0.7;
+  }
+
+  loseDoorFight() {
+    const g = this.g;
+    this.fight = null;
+    g.ui.doorFight(false);
+    this.breach(true);
+  }
+
+  // ------------------------------------------------------------ Thimble
+  singToThimble() {
+    const g = this.g;
+    if (!this.thimble.sing()) return;
+    const p = this.thimble.worldPos;
+    g.sound({ x: p.x, z: p.z, y: 1, radius: 3.5, strength: 0.5, color: PULSE.WORLD, source: 'object' });
+    // it's his song too: it brings him to June's room
+    this.drawn = 16;
+    if (['idle', 'linger'].includes(this.mode)) { this.mode = 'idle'; this.timer = 0.4; this.lureLinger = false; }
+    if (!['atDoor', 'atWindow', 'doorFight', 'banging', 'breach'].includes(this.mode)) {
+      const dDoor = TO_DOOR[this.node] ?? 9, dWin = TO_WINDOW[this.node] ?? 9;
+      this.goal = dDoor <= dWin ? 'DOOR' : 'WINDOW';
+    }
+    if (!this.sungOnce) { this.sungOnce = true; this.g.subtitle('Ellis', 'Shh. Shh. Not too loud…', 2.4); }
+  }
+
+  thimbleKill() {
+    const g = this.g;
+    this.mode = 'thimble';
+    this.killT = 0;
+    if (this.monitorUp) this.toggleMonitor();
+    if (this.fight) { this.fight = null; g.ui.doorFight(false); }
+    this.holding = null;
+    g.ui.setPrompt(null);
+    const p = this.thimble.worldPos;
+    g.player.forcedLook = { x: p.x, y: p.y, z: p.z, speed: 9 };
+    g.audio.play('riser', { pos: p, gain: 0.8 });
+  }
+
+  updateThimbleKill(dt) {
+    const g = this.g;
+    this.killT += dt;
+    this.thimble.lunge(Math.min(1, this.killT / 0.9));
+    if (this.killT > 0.75 && !this.killScare) {
+      this.killScare = true;
+      g.audio.play('jumpscare', { gain: 1.0, reverb: 0.2 });
+      g.redFlash = 1;
+      g.player.shake = 1.4;
+    }
+    if (this.killT > 1.5) { this.killScare = false; this.mode = 'dead'; g.die(true, 'thimble'); }
   }
 
   stopBreath() { if (this.breathLoop) { this.breathLoop.stop(0.3); this.breathLoop = null; } }
 
+  // the shutters held
   repelled(atDoor) {
-    const g = this.g, h = g.hush;
+    const g = this.g;
     this.stopBreath();
-    if (atDoor) {
-      g.audio.play('door_slam', { pos: { x: 12, y: 1.2, z: 5.0 }, gain: 1 });
-      g.sound({ x: 12.0, z: 4.6, y: 1.0, radius: 3.8, strength: 1, color: PULSE.HUSH, source: 'hush', euclid: true });
-      this.doorShake = 0.8;
-    } else {
-      g.audio.play('door_slam', { pos: { x: 16.9, y: 1.4, z: 2.5 }, gain: 0.8, rate: 1.3 });
-      g.sound({ x: 17.2, z: 2.5, y: 1.4, radius: 3.0, strength: 1, color: PULSE.HUSH, source: 'hush', euclid: true });
-    }
+    g.audio.play('door_slam', { pos: { x: 16.9, y: 1.4, z: 2.5 }, gain: 0.8, rate: 1.3 });
+    g.sound({ x: 17.2, z: 2.5, y: 1.4, radius: 3.0, strength: 1, color: PULSE.HUSH, source: 'hush', euclid: true });
     g.player.shake = 0.7;
-    g.audio.play('hush_growl', { pos: h.headPos, gain: 0.7 });
     g.stats.repelled++;
+    this.retreat(atDoor);
+  }
+
+  retreat(atDoor) {
+    const g = this.g, h = g.hush;
+    g.audio.play('hush_growl', { pos: h.headPos, gain: 0.7 });
+    h.voice.setLevel(0.55, 1.5);
     // retreat to somewhere far
     const far = atDoor ? (Math.random() < 0.5 ? 'LIVING' : 'KITCHEN') : 'KITCHEN';
     this.mode = 'retreat';
@@ -419,24 +602,10 @@ export class Holdout {
     this.mode = 'breach';
   }
 
+  // in the holdout there is no second chance: if he gets in, you die
   caught() {
-    const g = this.g;
     this.mode = 'caughtWait';
-    g.holdoutCaught(this.escapes > 0);
-  }
-
-  // after the player escapes a breach: they scramble under the bed, he loses them
-  afterEscape() {
-    const g = this.g, h = g.hush;
-    this.escapes--;
-    g.ui.subs(null);
-    const d = g.house.doorJune;
-    d.setTarget(false, 2.5);
-    this.mode = 'retreat';
-    this.moveTo(Math.random() < 0.5 ? 'LIVING' : 'KITCHEN', 2.6);
-    if (this.breachKind === 'window') h.teleport(18.3, 2.5);
-    h.setState('holdout');
-    h.voice.setLevel(0.5, 2);
+    this.g.holdoutCaught();
   }
 
   // ------------------------------------------------------------ dawn
@@ -445,6 +614,10 @@ export class Holdout {
     this.dawn = true;
     this.dawnT = 0;
     this.holding = null;
+    if (this.fight) { this.fight = null; g.ui.doorFight(false); g.player.forcedLook = null; }
+    const dj0 = g.house.doorJune;
+    dj0.angle = 0; dj0.target = 0; dj0._apply();
+    this.thimble.end();
     if (this.monitorUp) this.toggleMonitor();
     g.ui.setPrompt(null);
     g.ui.clock(true, 6, 0);
@@ -463,6 +636,7 @@ export class Holdout {
   updateDawn(dt) {
     const g = this.g;
     this.dawnT += dt;
+    this.thimble.update(dt, 0); // he settles with the light
     const k = Math.min(1, this.dawnT / 12);
     const a = g.shared.uAmbient.value;
     a.set(0.78 + 0.1 * k, 0.72 + 0.06 * k, 0.7, 0.42 * k * k);

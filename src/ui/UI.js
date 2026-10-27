@@ -179,6 +179,7 @@ export class UI {
   <div id="subs"><span class="who" id="subs-who"></span><div class="line" id="subs-line"></div></div>
   <div id="noise"><div class="label"><span>Noise</span><b id="noise-state">Quiet</b></div><canvas id="noise-cv" width="340" height="68"></canvas><div class="stam" id="stam"><i id="stam-i"></i></div></div>
   <div id="breath"><div class="label"><kbd data-bind="breath">Space</kbd>Hold your breath</div><div class="bar"><i id="breath-i"></i></div></div>
+  <div id="doorfight"><div class="t">Hold the door</div><kbd id="df-key">W</kbd><div class="bar"><i id="df-gap"></i></div><div class="pips" id="df-prog"><i></i></div></div>
   <div id="struggle"><div class="t">Break free</div><div class="keys"><kbd id="k-a" data-bind="left">A</kbd><kbd id="k-d" data-bind="right">D</kbd></div><div class="bar"><i id="struggle-i"></i></div></div>
   <div id="clock"><div class="time" id="clock-t">3:00<small>AM</small></div><span class="label">Until dawn</span></div>
   <div id="inventory"><span class="label">Carrying<span class="dash"></span></span><ul id="inv-list"></ul></div>
@@ -592,6 +593,21 @@ export class UI {
     b.classList.toggle('held', held);
     b.classList.toggle('low', v < 0.25);
     this.el('breath-i').style.width = Math.round(v * 100) + '%';
+  }
+  // holdout door fight: one key at a time pops up; the bar is how far he has the door open
+  doorFight(on, st = {}) {
+    const d = this.el('doorfight');
+    d.classList.toggle('on', on);
+    if (!on) return;
+    const k = this.el('df-key');
+    if (k.dataset.at !== String(st.keyAt)) {
+      k.dataset.at = String(st.keyAt);
+      k.textContent = st.key;
+      k.classList.remove('pop'); void k.offsetWidth; k.classList.add('pop'); // restart the pop animation
+    }
+    d.classList.toggle('wrong', !!st.wrong);
+    this.el('df-gap').style.width = Math.round(st.gap * 100) + '%';
+    this.el('df-prog').firstChild.style.width = Math.round(Math.min(1, st.prog) * 100) + '%';
   }
   struggle(on, progress = 0, next = 'A') {
     this.el('struggle').classList.toggle('on', on);
