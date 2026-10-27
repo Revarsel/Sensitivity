@@ -41,7 +41,7 @@ All keys can be rebound in **Settings → Controls**.
 
 Fifteen years ago, six-year-old June Marsh vanished from her bedroom, along with her *Hushaby*, a plush bedtime companion made by Cradle & Co., "the toy that's sensitive to your child." Her older sibling Ellis has come home after a cassette arrived in the mail with June's voice on it. Mr. Hush, her bear, is waiting in Mom's armchair. He is much bigger now.
 
-The full design for Chapter 1 is in [`docs/CHAPTER_1_PLAN.md`](docs/CHAPTER_1_PLAN.md).
+The whole story, from Chapter 1 to the planned finale, is in [`docs/LORE.md`](docs/LORE.md). The full design for Chapter 1 is in [`docs/CHAPTER_1_PLAN.md`](docs/CHAPTER_1_PLAN.md), and how the game works under the hood is in [`docs/TECHNICAL.md`](docs/TECHNICAL.md).
 
 ## How it works
 

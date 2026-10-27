@@ -11,6 +11,8 @@ The codebase is about 10,300 lines of JS plus CSS. Reading all of it wastes the 
 
 Other docs:
 - `docs/CHAPTER_1_PLAN.md`: game design (story, house layout, mechanics, holdout, lore list).
+- `docs/LORE.md`: the whole story, Chapter 1 (canon) to the planned finale. **Update it whenever lore is added or changed.**
+- `docs/TECHNICAL.md`: plain-language guide to how the game works (graphics, sound, AI, collisions, stages, testing). **Living document: update it in the same change whenever a mechanic, system or tuned number it describes changes.**
 - `README.md`: player-facing overview, controls, how to run.
 
 ## Project in one paragraph
