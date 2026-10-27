@@ -91,6 +91,7 @@ uniform float uWhite;
 uniform float uCA;
 uniform float uGrain;
 uniform float uVignette;
+uniform float uTunnel;
 uniform float uBrightness;
 uniform float uMonitor;
 uniform float uStatic;
@@ -144,6 +145,15 @@ void main() {
     // fear: red bleeding in from the edges with the heartbeat
     col += vec3(0.32, 0.0, 0.015) * (1.0 - vig) * uFear * (0.35 + 0.65 * uBeat);
     col = mix(col, col * vec3(1.05, 0.85, 0.85), uFear * 0.4);
+    // out of air: the view closes in, throbbing with the heartbeat, colour drains and it all dims
+    if (uTunnel > 0.001) {
+      float r = length(cc * vec2(aspect * 0.78, 1.0));
+      float outer = 1.15 - 0.8 * uTunnel - uBeat * 0.05 * uTunnel;
+      float tun = smoothstep(outer - 0.55, outer, r);
+      col *= 1.0 - tun * min(1.0, 0.55 + 0.45 * uTunnel);
+      col = mix(col, vec3(dot(col, vec3(0.299, 0.587, 0.114))), uTunnel * 0.7);
+      col *= 1.0 - 0.5 * uTunnel * uTunnel;
+    }
   }
   // void lift (never pure black - feels like ink, not a dead screen)
   col += vec3(0.010, 0.011, 0.014) * (0.6 + 0.4 * vig);
@@ -214,6 +224,7 @@ export class Pipeline {
         uCA: { value: 0.0035 },
         uGrain: { value: 0.06 },
         uVignette: { value: 0.9 },
+        uTunnel: { value: 0 },
         uBrightness: { value: 1.0 },
         uMonitor: { value: 0 },
         uStatic: { value: 0 },

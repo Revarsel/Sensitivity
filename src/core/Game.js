@@ -18,6 +18,8 @@ import { TAPES, LORE_ORDER, OBJECTIVES, CHECKPOINTS } from '../game/Lore.js';
 import { loadSettings, saveSettings, loadSave, writeSave, QUALITY, VOLUME_SCALE } from './Settings.js';
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+// seconds after breaking free during which a second grab is fatal (he is stunned for 4 of them)
+const RECATCH_WINDOW = 10;
 
 export class Game {
   constructor(canvas, uiRoot) {
@@ -298,7 +300,7 @@ export class Game {
     if (this.menuMusic) { this.menuMusic.stop(1.0); this.menuMusic = null; }
     this.fadeV = 1; this.fadeTarget = 0;
     this.stats = { start: this.time, heard: 0, thrown: 0, hid: 0, repelled: 0, survived: false };
-    this.escapes = 1;
+    this.lastEscape = -99;
     this.state = 'play';
     this.paused = false;
     this.ui.hud(true);
@@ -310,7 +312,7 @@ export class Game {
   checkpoint(cp, silent = false) {
     this.save.cp = cp;
     this.persist();
-    this.escapes = 1;
+    this.lastEscape = -99;
     if (!silent && cp !== 'start') setTimeout(() => this.ui.message('Checkpoint', 1800), 2600);
   }
   persist() {
@@ -381,7 +383,7 @@ export class Game {
     this.state = 'play';
     this.ui.hud(true);
     this.chapter.start(cp);
-    this.escapes = 1;
+    this.lastEscape = -99;
     this.input.requestLock();
   }
 
@@ -576,9 +578,10 @@ export class Game {
     h.m.pose.jaw = 1;
     this.ui.clearHint();
     this.ui.setPrompt(null);
-    const canEscape = this.escapes > 0;
+    // you can always fight him off, unless he gets you again while you're still catching your breath
+    const canEscape = this.time - this.lastEscape > RECATCH_WINDOW;
     this.startStruggle(canEscape, () => {
-      this.escapes--;
+      this.lastEscape = this.time;
       h.m.pose.jaw = 0;
       h.stun();
       pl.forcedLook = null;
@@ -694,7 +697,7 @@ export class Game {
     this.ui.hud(true);
     this.chapter.flags.holdout = true;
     this.save.cp = 'holdout'; this.persist();
-    this.escapes = 1;
+    this.lastEscape = -99;
     this.holdout.begin();
     this.ui.card('3:00 AM', 'Until dawn', 3800);
     setTimeout(() => { if (this.state === 'holdout') this.ui.hint('<span><kbd>Space</kbd>Baby monitor</span><span><kbd>1 2 3</kbd>Rooms</span><span><kbd>L</kbd>Lullaby lure</span><span><kbd>Hold mouse</kbd>Hold the door or shutters</span>', 9000); }, 4200);
@@ -853,16 +856,19 @@ export class Game {
         this.audio.play('breath_out', { gain: pl.breath <= 0.02 ? 0.8 : 0.35, rate: 1.1 });
         if (pl.breath <= 0.02) {
           this.audio.play('gasp', { gain: 0.8 });
-          this.sound({ x: pl.pos.x, z: pl.pos.z, y: 1, radius: 4.5, strength: 0.7, source: 'player', kind: 'gasp' });
+          // loud for him, but only a faint ripple on screen (a full-strength pulse at your face whites out the view)
+          this.sound({ x: pl.pos.x, z: pl.pos.z, y: 1, radius: 4.5, strength: 0.22, source: 'player', kind: 'gasp' });
         }
       }
       pl.breathHeld = holding;
-      pl.breath = holding ? Math.max(0, pl.breath - dt / 6.5) : Math.min(1, pl.breath + dt / 3.5);
+      // tucked away and still, you can hold it longer (about 10 s against 6.5 s in the open)
+      pl.breath = holding ? Math.max(0, pl.breath - dt / (pl.mode === 'hide' ? 10 : 6.5)) : Math.min(1, pl.breath + dt / 3.5);
       this.ui.breath(pl.mode === 'hide' || hushClose || holding || pl.breath < 0.98, pl.breath, holding);
       this.breathT = (this.breathT || 0) - dt;
       if (hushClose && !holding && this.breathT <= 0) {
         this.breathT = 1.6;
-        this.sound({ x: pl.pos.x, z: pl.pos.z, y: 1.4, radius: 0.9 + this.fear * 1.6, strength: 0.3, source: 'player', kind: 'breath', visual: false, soft: true });
+        const muffle = pl.mode === 'hide' ? 0.6 : 1;
+        this.sound({ x: pl.pos.x, z: pl.pos.z, y: 1.4, radius: (0.9 + this.fear * 1.6) * muffle, strength: 0.3, source: 'player', kind: 'breath', visual: false, soft: true });
       }
       if (hushClose && !this.chapter.flags.breathHint) {
         this.chapter.flags.breathHint = true;
@@ -930,6 +936,11 @@ export class Game {
     fx.uBeat.value = Math.exp(-this.beatPhase * 7);
     fx.uCA.value = 0.0028 + this.fear * 0.002 + this.redFlash * 0.01;
     fx.uVignette.value = 0.85 + this.fear * 0.15;
+    // running out of air: the view tunnels and dims as you near passing out
+    const pl = this.player;
+    const oxyT = pl.breathHeld && (pl.mode === 'walk' || pl.mode === 'hide') ? Math.max(0, 1 - pl.breath / 0.45) : 0;
+    this.oxy = (this.oxy || 0) + (oxyT - (this.oxy || 0)) * Math.min(1, dt * (oxyT > (this.oxy || 0) ? 3 : 1.5));
+    fx.uTunnel.value = this.oxy;
     if (this.player.mode === 'grabbed' || this.state === 'dead') this.player.shake = Math.max(this.player.shake, 0.4);
     const e = this.player.eye;
     const nearOn = this.state === 'menu' ? 0.0 : 0.05;

@@ -473,12 +473,14 @@ export class UI {
     const i = this.root.querySelector('#holdbar-i');
     if (i) i.style.width = Math.round(v * 100) + '%';
   }
-  objective(text, dur = 7000) {
+  // the objective stays on screen; a new one is shown large for a few seconds, then settles small
+  objective(text, freshFor = 7000) {
     const o = this.el('objective');
-    this.el('obj-text').textContent = text;
-    o.classList.add('on');
+    this.el('obj-text').textContent = text || '';
+    o.classList.toggle('on', !!text);
+    o.classList.add('fresh');
     clearTimeout(this.timers.obj);
-    if (dur) this.timers.obj = setTimeout(() => o.classList.remove('on'), dur);
+    this.timers.obj = setTimeout(() => o.classList.remove('fresh'), freshFor);
   }
   hint(html, dur = 5000, quote = false) {
     const h = this.el('hint');

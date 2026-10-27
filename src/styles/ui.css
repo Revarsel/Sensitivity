@@ -519,8 +519,10 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
   transition: opacity 0.9s, transform 0.9s cubic-bezier(.2,.7,.2,1);
 }
 #objective.on { opacity: 1; transform: none; }
-#objective .label { display: block; margin-bottom: 8px; }
-#objective .text { font-family: var(--serif); font-style: italic; font-size: 22px; color: var(--bone); text-shadow: 0 0 14px #000; }
+#objective .label { display: block; margin-bottom: 8px; transition: opacity 0.9s; }
+#objective .text { font-family: var(--serif); font-style: italic; font-size: 16px; color: var(--bone-dim); text-shadow: 0 0 14px #000; transition: font-size 0.9s cubic-bezier(.2,.7,.2,1), color 0.9s; }
+#objective:not(.fresh) .label { opacity: 0.55; }
+#objective.fresh .text { font-size: 22px; color: var(--bone); }
 
 #subs {
   position: absolute;

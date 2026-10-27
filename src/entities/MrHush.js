@@ -114,6 +114,8 @@ export class MrHush {
       }
       return;
     }
+    // after a check came up empty he gives up on this spot: quiet sounds from a hiding player don't pull him back
+    if (this.leaving() && o.soft && o.source === 'player' && this.g.player.hidden) return;
     const field = this.g.house.field;
     const dist = field.sample(field.compute(o.x, o.z, 1), this.x, this.z);
     const reach = o.radius * this.hearMul;
@@ -167,7 +169,12 @@ export class MrHush {
     const unlockedJune = !g.house.doorJune.locked;
     const options = WAYPOINTS.filter((w) => w.room !== 'June’s room' || unlockedJune);
     const pl = g.player;
-    if (fresh.length && Math.random() < 0.55) {
+    if (this.leaving()) {
+      // giving up: head somewhere well away from where you are hiding
+      const far = options.filter((w) => Math.hypot(w.x - pl.pos.x, w.z - pl.pos.z) > 7);
+      const pool = far.length ? far : options;
+      wp = pool[Math.floor(Math.random() * pool.length)];
+    } else if (fresh.length && Math.random() < 0.55) {
       const d = fresh[fresh.length - 1]; d.visited = true; wp = d;
     } else if (this.menace > 0.85 && pr) {
       // he has been away too long: he comes looking, close to where you are, but not exactly
@@ -283,11 +290,7 @@ export class MrHush {
           if (spot) {
             this.checking = spot;
             this.goTo(spot.out.x, spot.out.z, 'check');
-          } else {
-            this.huntedRecently = false;
-            this.setState('wander');
-            this.pickWander();
-          }
+          } else this.giveUp();
         }
         break;
       }
@@ -317,7 +320,7 @@ export class MrHush {
             // keep searching others, a little less likely each time
             const next = Math.random() < 0.45 ? this.pickHideToCheck(spot) : null;
             if (next) { this.checking = next; this.goTo(next.out.x, next.out.z, 'check'); }
-            else { this.huntedRecently = false; this.setState('wander'); this.timer = 2; }
+            else { this.giveUp(); }
           }
         }
         break;
@@ -449,9 +452,19 @@ export class MrHush {
     this.g.emit('hushGrab', { fromHide });
   }
 
+  // nothing found: leave the area for a while (see leaving())
+  giveUp() {
+    this.huntedRecently = false;
+    this.leaveUntil = this.g.time + 15;
+    this.menace = Math.min(this.menace, 0.2);
+    this.setState('wander');
+    this.timer = 0.6;
+  }
+  leaving() { return this.g.time < (this.leaveUntil ?? 0); }
+
   // after the player breaks free
   stun() {
-    this.setState('stunned', { timer: 2.8 });
+    this.setState('stunned', { timer: 4 });
     this.m.pose.grab = 0;
   }
 

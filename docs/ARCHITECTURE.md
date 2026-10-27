@@ -18,7 +18,7 @@ Stack: Three.js r186, Vite 8, plain ES modules, WebGL2, Web Audio. Entry: `index
 | `src/render/SoundField.js` | 25 cm grid over the house. Walls and doors are rasterised in. `compute(x,z,mode)` = 16-neighbour Dijkstra **geodesic distance field** (mode 0 = visual, closed doors block; mode 1 = hearing, closed doors add cost). Cached. `wallsBetween()` for audio occlusion. |
 | `src/render/Pulses.js` | `PulseSystem`: up to `MAX_PULSES=24` active pulses. Each pulse's distance field is written into a half-float DataTexture (rows per slot). `PULSE` colour ids: PLAYER (ice), HUSH (red), WORLD (amber), LIGHT. `createSharedUniforms()`. |
 | `src/render/RevealMaterial.js` | All shaders. `revealMaterial({color, pattern, map, cutout, tint, emissive})` (GLSL3 RawShaderMaterial writing 3 MRT targets). `PAT` procedural patterns (floorboard, wallpaper, tile, fur, blood…). Also `cloneReveal`, `setHighlight`, `dustMaterial`, `glowMaterial`, `glassMaterial` (additive, see-through). |
-| `src/render/Pipeline.js` | Post: G-buffer (3 HalfFloat MRT) → edge composite (outlines and amber highlight) → FXAA → UnrealBloom → final grade (ACES, grain, CA, fear vignette, red flash, fade, **monitor night-vision mode**). `pipeline.fx` = final uniforms. |
+| `src/render/Pipeline.js` | Post: G-buffer (3 HalfFloat MRT) → edge composite (outlines and amber highlight) → FXAA → UnrealBloom → final grade (ACES, grain, CA, fear vignette, `uTunnel` out-of-breath tunnel vision, red flash, fade, **monitor night-vision mode**). `pipeline.fx` = final uniforms. |
 | `src/world/House.js` | Builds the whole house: `wallX/wallZ` (walls with door, window and arch openings, trim, sound-grid walls, **player wall colliders** tagged `wall:true, noNav:true`; window openings are solid), rooms (floors and ceilings plus footstep surface zones), windows, doors, `furnish()` (all prop placement), exterior, decals, dust. Exposes `doors`, `doorJune` etc., `colliders`, `zones`, `creaky`, `hideSpots`, `hushChair`, `tvScreen`, `clockPos`, `holdoutSeat`, `surfaceAt()`, `roomAt()`. |
 | `src/world/Builder.js` | Geometry builder with transform stack (`at(x,y,z,rotY,fn)`), primitives (`box/boxC/rbox/cyl/sphere/lathe/tube/plane`), `collider()`, and `build()` merges per material. `buildGroup(fn)` for movable objects. |
 | `src/world/props.js` | Procedural furniture functions `(b, M, ...)` in local space (front = +Z). |
@@ -37,7 +37,7 @@ Stack: Three.js r186, Vite 8, plain ES modules, WebGL2, Web Audio. Entry: `index
 | `src/game/Interactions.js` | Look-at raycast interactables, prompts, tap/hold, door tap-fast vs hold-slow, highlight. `ownMaterials(obj)`. |
 | `src/game/Throwables.js` | Pick up, viewmodel, throw physics, impact noise, glass shards (become a loud floor zone). |
 | `src/game/Lore.js` | **All story text**: `DOCS`, `TAPES` (subtitle lines `[who, text, seconds]`), `LORE_ORDER`, `OBJECTIVES`, `CHECKPOINTS`. |
-| `src/ui/UI.js` | All DOM UI built from template strings: boot, menu, prologue, pause, settings, evidence, document viewer, death, end, HUD (prompt, objective, hint, message, subtitles, noise meter, breath, struggle, clock, tape cassette), baby-monitor overlay, card, fade. Callbacks go to `game.menuAction/pauseAction/deathAction/endAction`. |
+| `src/ui/UI.js` | All DOM UI built from template strings: boot, menu, prologue, pause, settings, evidence, document viewer, death, end, HUD (prompt, objective (always shown; `.fresh` = large for 7 s, then it settles small), hint, message, subtitles, noise meter, breath, struggle, clock, tape cassette), baby-monitor overlay, card, fade. Callbacks go to `game.menuAction/pauseAction/deathAction/endAction`. |
 | `src/styles/main.css` | CSS tokens (colours, font stacks). `ui.css`: all UI styling. |
 | `docs/` | `CHAPTER_1_PLAN.md` (design), this file. |
 
@@ -66,7 +66,8 @@ game.sound({ x, y, z, radius, strength, color: PULSE.X, source: 'player'|'object
 - Every visible world mesh uses `revealMaterial`. It outputs to 3 targets: colour, view normal plus depth, and reveal colour plus highlight. Additive effects (dust, glass, glow) must write **zero** to targets 1 and 2.
 - Brightness comes only from pulses, `uPlayer` near-field (faint), `uAmbient` (monitor IR, dawn), and `uFlash` (lightning). These are set via `game.shared.*`.
 - Highlight an interactable: `setHighlight(mat, 0..1)`. Interactions handles this for items with `highlight:true`.
-- Tuning knobs: fill strength `0.28` and ring `0.85` in `gatherReveal` (RevealMaterial); `uEdgeGain` and bloom in Pipeline.
+- **Pulse fade is two-stage.** A spatial flash sits just behind the front: `fresh = exp(-(front - d) / 2.2)`. The fill is `0.11 + 0.45 * fresh` and the ring is `0.45` in `gatherReveal`. So a surface flashes as the wave passes, then drops to a dim afterglow. `Pulses.update` holds that afterglow (`B.y` = 1) until `travel + linger*0.9`, then eases it out by `life = travel + linger*2.8`. The `pow 0.55` keeps the faint tail above the edge threshold. For a knock this gives a flash at about 0.25 s, dim to about 2.9 s, and gone by about 4 s.
+- Tuning knobs: the fill and ring constants above; `uEdgeGain` and bloom in Pipeline.
 
 ## 5. Mr. Hush AI (`MrHush.js`)
 States: `dormant` (in chair) → `wander` (hums; picks waypoints biased to disturbances and player's room) → `investigate` → `search` (sniff, look around) → `check` (opens hiding spots; weighted by `hideMemory` and `heardEnter`) → `hunt` (3.3 m/s; repaths) → `grab` → `stunned`. Also `holdout` (driven by Holdout.brain) and `scripted` (tests and cutscenes).
@@ -76,10 +77,13 @@ States: `dormant` (in chair) → `wander` (hums; picks waypoints biased to distu
 - **Always a threat (anti-cheese)**, tuned with bot simulations (a careful evasive bot survives 3 min about 50% of the time):
   - `menace` (0..1) rises while he's more than 8 m from the player (+1/45 s) and falls when close. `pickWander` drifts toward the player's room with probability 0.3 + 0.5 × menace. At menace > 0.85 he walks (humming, wander pace) to a point 2.5 to 4.5 m from the player.
   - `smellT`: 2.5 s within 2.3 m of him (not hidden) makes him investigate your position.
-  - Breathing: within 4.5 m of an awake Hush the player emits a soft `breath` sound every 1.6 s unless holding breath (Space, works anywhere except sprinting, about 6.5 s capacity, gasp when empty). Logic is in `Game.updatePlayActions`.
+  - Breathing: within 4.5 m of an awake Hush the player emits a soft `breath` sound every 1.6 s unless holding breath. Space works anywhere except sprinting. Capacity is about 6.5 s in the open and 10 s while hidden. While hidden the breath radius is ×0.6 (muffled). Logic is in `Game.updatePlayActions`.
+  - Running out of air: `Game.updateFX` smooths `this.oxy`, which ramps up as held breath drops below 0.45, into `fx.uTunnel` (the view closes in, desaturates and dims). The gasp on release is loud for him (radius 4.5) but visually faint (strength 0.22). A full-strength pulse at the player's face whites out the screen.
   - Sounds flagged `soft: true` (creep steps, breath, slow doors) need intensity > 0.75 to start a hunt; normal sounds need > 0.42.
 - **Tracking (`canTrack`)**: while hunting (or searching, within 4.5 m) he follows the player's live position if they're within 7 m, moving at walk speed or faster, not crouched, and at most one wall away. Freeze, creep or hide to break the trail.
 - Hiding check catches you if you weren't holding your breath (or 50% if he heard you enter).
+- **Giving up (`giveUp()` / `leaving()`)**: an empty check, or a search with nothing left to check, sets `leaveUntil = time + 15`. While leaving, `pickWander` only picks waypoints more than 7 m from the player, and `hear()` ignores soft sounds from a hidden player. Hiding and holding your breath therefore really makes him go away.
+- **Grab and escape**: you can always struggle free unless you're grabbed again within `RECATCH_WINDOW` (10 s, `Game.js`) of the last escape (`game.lastEscape`). After an escape he is `stunned` for 4 s.
 - Speeds and strides: `SPEED`/`STRIDE` consts at top. Waypoints: `WAYPOINTS`.
 - Events emitted: `hushState`, `hushHunt`, `hushGrab`, `hushCheck`, `hushCalm`.
 

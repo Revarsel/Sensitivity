@@ -75,7 +75,9 @@ vec3 gatherReveal(vec3 p, vec3 n, out float ringOut) {
     vec3 L = A.xyz - p;
     float ll = length(L);
     float lam = 0.42 + 0.58 * clamp(dot(n, L / max(ll, 1e-3)) * 0.5 + 0.5, 0.0, 1.0);
-    float glow = B.x * (inside * B.y * fall * lam * 0.28 + ring * 0.85 * fall);
+    // bright just behind the front, dropping fast to a dim afterglow that lingers (B.y fades it out)
+    float fresh = exp(-max(0.0, front - d) / 2.2);
+    float glow = B.x * (inside * B.y * fall * lam * (0.11 + 0.45 * fresh) + ring * 0.45 * fall);
     int ci = int(mod(B.w, 4.0));
     col += uPalette[ci] * glow;
     ringOut += ring * fall * B.x;

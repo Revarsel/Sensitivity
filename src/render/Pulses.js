@@ -88,7 +88,8 @@ export class PulseSystem {
     s.euclid = !!o.euclid;
     s.age = 0;
     s.linger = o.linger ?? 1.4;
-    s.life = radius / s.speed + s.linger;
+    // the dim afterglow outlives the front: linger holds it, then it takes about as long again to fade out
+    s.life = radius / s.speed + s.linger * 2.8;
     s.fade = 1;
     if (!s.euclid) this._writeField(best, this.field.compute(s.x, s.z, 0));
     return best;
@@ -112,10 +113,12 @@ export class PulseSystem {
       s.age += dt;
       s.radius = Math.min(s.maxR * 1.15, s.radius + s.speed * dt);
       const travel = s.maxR / s.speed;
-      // afterglow fades once the front has mostly travelled
-      const t = Math.max(0, s.age - travel * 0.35) / (s.life - travel * 0.35);
-      s.fade = Math.max(0, 1 - t);
-      s.fade = s.fade * s.fade * (3 - 2 * s.fade);
+      // the bright flash right behind the front is spatial (see gatherReveal); this only fades the dim
+      // afterglow: it holds while the front travels and for most of the linger, then eases out
+      // (the power keeps the dim tail visible for longer: low values sit near the edge pass's threshold)
+      const t0 = travel + s.linger * 0.9;
+      const t = Math.min(1, Math.max(0, (s.age - t0) / (s.life - t0)));
+      s.fade = Math.pow(1 - t * t * (3 - 2 * t), 0.55);
       if (s.age >= s.life) { s.active = false; B[i].x = 0; continue; }
       A[i].set(s.x, s.y, s.z, s.radius);
       B[i].set(s.strength, s.fade, s.maxR, s.color + (s.euclid ? 4 : 0));
