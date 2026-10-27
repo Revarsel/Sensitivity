@@ -43,6 +43,11 @@ export class Player {
     this.fovKick = 0;
   }
 
+  // Ease the camera from where it is now to wherever the next frames put it (hiding in/out).
+  startGlide(dur = 0.5) {
+    this.glide = { from: this.camera.position.clone(), yaw: this.yaw, pitch: this.pitch, t: 0, dur };
+  }
+
   teleport(x, z, yaw = this.yaw, pitch = 0) {
     this.pos.set(x, 0, z);
     this.vel.set(0, 0);
@@ -156,6 +161,16 @@ export class Player {
       eyeY + by - this.landKick * 0.05 + shy,
       this.pos.z - s * bx,
     );
+    let camYaw = this.yaw, camPitch = this.pitch;
+    if (this.glide) {
+      const G = this.glide;
+      G.t += dt;
+      const u = Math.min(1, G.t / G.dur), k = u * u * (3 - 2 * u);
+      this.eye.lerpVectors(G.from, this.eye, k);
+      camYaw = G.yaw + Math.atan2(Math.sin(this.yaw - G.yaw), Math.cos(this.yaw - G.yaw)) * k;
+      camPitch = G.pitch + (this.pitch - G.pitch) * k;
+      if (u >= 1) this.glide = null;
+    }
     this.camera.position.copy(this.eye);
     if (this.forcedLook) {
       const f = this.forcedLook;
@@ -170,7 +185,8 @@ export class Player {
     const strafe = this.vel.x * c - this.vel.y * s;
     this.roll += ((-strafe * 0.012) + Math.cos(this.bobPhase) * 0.004 * bob - this.roll) * Math.min(1, dt * 6);
     this.camera.rotation.order = 'YXZ';
-    this.camera.rotation.set(this.pitch + iy, this.yaw + ix, this.roll);
+    if (this.forcedLook) { camYaw = this.yaw; camPitch = this.pitch; }
+    this.camera.rotation.set(camPitch + iy, camYaw + ix, this.roll);
   }
 
   surface() { return this.house.surfaceAt(this.pos.x, this.pos.z); }

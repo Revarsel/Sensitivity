@@ -208,6 +208,12 @@ export const OBJECTIVES = {
   tape: 'Check the baby monitor.',
 };
 
+// Carried items shown in the HUD inventory (Chapter1.inv ids). icon = UI.ICONS key.
+export const ITEMS = {
+  key: { name: 'June’s key', icon: 'key' },
+  batteries: { name: 'Batteries', icon: 'battery' },
+};
+
 export const CHECKPOINTS = {
   start: 'The foyer',
   awake: 'Diane’s bedroom',

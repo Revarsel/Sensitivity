@@ -651,6 +651,32 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 #card .big { font-family: var(--serif); font-size: clamp(56px, 7vw, 104px); color: var(--bone); }
 
 /* tape player */
+/* carried items: right edge, vertically centred, right-aligned like a margin note */
+#inventory {
+  position: absolute;
+  right: clamp(26px, 4vw, 54px);
+  top: 50%;
+  transform: translate(6px, -50%);
+  text-align: right;
+  opacity: 0;
+  transition: opacity 0.8s, transform 0.8s cubic-bezier(.2,.7,.2,1);
+  pointer-events: none;
+}
+#inventory.on { opacity: 1; transform: translate(0, -50%); }
+#inventory .label { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 10px; opacity: 0.55; }
+#inventory ul { list-style: none; margin: 0; padding: 0; }
+#inventory li {
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(216, 209, 194, 0.08);
+  color: var(--bone-dim);
+  transition: color 1.2s;
+}
+#inventory li .name { font-family: var(--serif); font-style: italic; font-size: 16px; text-shadow: 0 0 12px #000; }
+#inventory li svg { width: 30px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+#inventory li.new { color: var(--bone); }
+#inventory li.new svg { stroke: var(--blood); }
+
 #tape {
   position: absolute;
   right: clamp(26px, 4vw, 54px);

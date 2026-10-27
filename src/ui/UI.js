@@ -3,6 +3,12 @@ import { DOCS, TAPES, LORE_ORDER } from '../game/Lore.js';
 import { drawingTexture } from '../world/Textures.js';
 import { ACTIONS, defaultBinds, keyLabel } from '../core/Keybinds.js';
 
+// thin line glyphs for the inventory (stroke = currentColor)
+const ICONS = {
+  key: '<svg viewBox="0 0 34 16" aria-hidden="true"><circle cx="7" cy="8" r="4.6"/><circle cx="7" cy="8" r="1.4"/><path d="M11.6 8H31M25.5 8v4.2M29 8v3"/></svg>',
+  battery: '<svg viewBox="0 0 34 16" aria-hidden="true"><rect x="3" y="3.5" width="24" height="9" rx="1"/><path d="M27 6.2h2.6v3.6H27M8 8h4.4M10.2 5.8v4.4M18.5 8h4"/></svg>',
+};
+
 const HEADPHONES = `<svg width="34" height="30" viewBox="0 0 34 30" fill="none" stroke="#d8d1c2" stroke-width="1.2" stroke-linecap="round"><path d="M4 19V16a13 13 0 0 1 26 0v3"/><rect x="2.5" y="18" width="6" height="10" rx="1.5"/><rect x="25.5" y="18" width="6" height="10" rx="1.5"/><path d="M12 22c1.2-1.3 1.2-3.7 0-5M22 22c-1.2-1.3-1.2-3.7 0-5" stroke-opacity=".5"/></svg>`;
 
 const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x', 'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi'];
@@ -173,6 +179,7 @@ export class UI {
   <div id="breath"><div class="label"><kbd data-bind="breath">Space</kbd>Hold your breath</div><div class="bar"><i id="breath-i"></i></div></div>
   <div id="struggle"><div class="t">Break free</div><div class="keys"><kbd id="k-a" data-bind="left">A</kbd><kbd id="k-d" data-bind="right">D</kbd></div><div class="bar"><i id="struggle-i"></i></div></div>
   <div id="clock"><div class="time" id="clock-t">3:00<small>AM</small></div><span class="label">Until dawn</span></div>
+  <div id="inventory"><span class="label">Carrying<span class="dash"></span></span><ul id="inv-list"></ul></div>
   <div id="tape"><div id="tape-svg"></div><div class="meta"><span id="tape-title">Tape</span><b id="tape-time">00:00</b></div></div>
 </div>
 
@@ -456,6 +463,15 @@ export class UI {
 
   // ------------------------------------------------------------ HUD
   hud(on) { this.show('hud', on); }
+  // carried items, right side of the HUD; items not seen before get a short highlight
+  inventory(items) {
+    const box = this.el('inventory'), list = this.el('inv-list');
+    const had = new Set([...list.children].map((li) => li.dataset.id));
+    list.innerHTML = items.map((it) => `<li data-id="${it.id}" class="${had.has(it.id) ? '' : 'new'}"><span class="name">${it.name}</span>${ICONS[it.icon] || ''}</li>`).join('');
+    box.classList.toggle('on', items.length > 0);
+    clearTimeout(this.timers.inv);
+    this.timers.inv = setTimeout(() => list.querySelectorAll('li.new').forEach((li) => li.classList.remove('new')), 2600);
+  }
   fps(text) {
     const f = this.el('fps');
     f.classList.toggle('on', !!text);

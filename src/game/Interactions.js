@@ -3,6 +3,8 @@ import { cloneReveal, setHighlight } from '../render/RevealMaterial.js';
 import { PULSE } from '../render/Pulses.js';
 
 // Give an object its own material copies so it can be highlighted alone.
+const REVEAL_HOLD = 4.5, REVEAL_FADE = 2.5;
+
 export function ownMaterials(obj) {
   const mats = [];
   obj.traverse((o) => {
@@ -49,14 +51,20 @@ export class Interactions {
     const input = g.input;
     const cam = g.camera;
     const pl = g.player;
-    // proximity glow for lore + key items
+    // evidence glow: dark until a sound's wave sweeps over it, then fully lit for REVEAL_HOLD s
+    // and fading over REVEAL_FADE s. Aiming at it unrevealed gives only a faint hint.
     for (const it of this.list) {
       if (!it.highlight || !it.obj.userData.mats) continue;
       const p = it.obj.getWorldPosition(this.tmp);
-      const d = Math.hypot(p.x - pl.pos.x, p.z - pl.pos.z);
       const on = it.enabled() && it.obj.visible;
-      const target = !on ? 0 : it === this.current ? 1 : d < 4.2 ? 0.28 * (1 - d / 4.2) + 0.06 : 0;
-      it._hl = (it._hl ?? 0) + (target - (it._hl ?? 0)) * Math.min(1, dt * 6);
+      // the hold starts when a new wave arrives (not for as long as that pulse lives)
+      const pid = on ? g.pulses.sweptOver(p.x, p.y, p.z) : 0;
+      if (pid > (it._pid ?? 0)) { it._pid = pid; it._revealAt = g.time; }
+      const since = g.time - (it._revealAt ?? -1e9);
+      const lit = since < REVEAL_HOLD ? 1 : Math.max(0, 1 - (since - REVEAL_HOLD) / REVEAL_FADE);
+      const aim = it === this.current ? (lit > 0.05 ? 1 : 0.3) : 0;
+      const target = !on ? 0 : Math.max(lit * 0.85, aim);
+      it._hl = (it._hl ?? 0) + (target - (it._hl ?? 0)) * Math.min(1, dt * (target > (it._hl ?? 0) ? 10 : 4));
       for (const m of it.obj.userData.mats) setHighlight(m, it._hl);
     }
 

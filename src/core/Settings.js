@@ -17,7 +17,8 @@ export const DEFAULTS = {
   subtitles: true,
   quality: 'high',
   autoRes: true,
-  showFps: false,
+  showFps: true,
+  rev: 1, // settings migrations: bump and handle in loadSettings
   keybinds: defaultBinds(),
 };
 
@@ -33,6 +34,8 @@ export function loadSettings() {
       const s = JSON.parse(raw);
       // Ctrl+W closes the browser tab, so creep moved off Ctrl
       if (s.keybinds && s.keybinds.creep === 'ControlLeft') s.keybinds.creep = 'KeyC';
+      // rev 1: the FPS counter became on by default (older saves stored it off)
+      if ((s.rev ?? 0) < 1) { s.showFps = true; s.rev = 1; }
       return { ...DEFAULTS, ...s, keybinds: { ...defaultBinds(), ...(s.keybinds || {}) } }; }
   } catch (e) { /* storage unavailable */ }
   return { ...DEFAULTS, keybinds: defaultBinds() };

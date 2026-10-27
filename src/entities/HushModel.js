@@ -305,7 +305,8 @@ export function animateHush(m, dt, time, phase) {
   }
 
   // head: bobbing, listening tilt, slumped when dormant
-  m.neck.rotation.x = -p.hunch * 0.35 + sit * 0.45 - p.grab * 0.25 + Math.sin(phase * 2) * 0.03 * walkAmt;
+  // when grabbing he bends his head down to your face (positive x = chin down)
+  m.neck.rotation.x = -p.hunch * 0.35 + sit * 0.45 + p.grab * 0.3 + Math.sin(phase * 2) * 0.03 * walkAmt;
   m.head.rotation.z = 0.16 + p.listen * 0.42 + sit * 0.3 + Math.sin(time * 0.7) * 0.03;
   m.head.rotation.y = p.look;
   m.head.rotation.x = p.listen * 0.12;

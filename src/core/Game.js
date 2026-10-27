@@ -460,6 +460,8 @@ export class Game {
         x: o.x, y: o.y ?? 0.05, z: o.z,
         radius: o.radius, strength: o.strength ?? 1, speed: o.speed ?? 11,
         color: o.color ?? PULSE.PLAYER, linger: o.linger, euclid: o.euclid,
+        hold: o.hold, tail: o.tail,
+        reveals: o.source !== 'world', // ambient house noises don't light up evidence
       });
     }
     if (o.source === 'player') this.noiseLevel = Math.max(this.noiseLevel, Math.min(1, o.radius / 9));
@@ -488,7 +490,7 @@ export class Game {
 
   knock() {
     if (this.knockCool > 0) return;
-    this.knockCool = 0.6;
+    this.knockCool = 0.85; // no spamming knocks to see
     const pl = this.player;
     const f = pl.forward();
     const e = pl.eye;
@@ -577,6 +579,7 @@ export class Game {
   // ================================================================ hiding
   enterHide(spot) {
     const pl = this.player;
+    pl.startGlide(spot.under ? 0.75 : 0.55);
     this.throwables.dropHeld();
     pl.hidden = spot;
     pl.mode = 'hide';
@@ -605,6 +608,7 @@ export class Game {
     pl.lookLimits = null;
     pl.fixedEyeY = null;
     pl.breathHeld = false;
+    pl.startGlide(spot.under ? 0.7 : 0.5);
     pl.teleport(spot.out.x, spot.out.z, pl.yaw, 0);
     this.audio.play(spot.under ? 'pickup' : 'door_creak_fast', { pos: { x: spot.x, y: 1, z: spot.z }, gain: 0.4, rate: 1.2 });
     this.sound({ x: spot.out.x, z: spot.out.z, y: 0.5, radius: 2.6, strength: 0.6, source: 'player', kind: 'hide' });
@@ -628,7 +632,9 @@ export class Game {
     this.fear = 1;
     // he is right in your face
     const dx = pl.pos.x - h.x, dz = pl.pos.z - h.z, dd = Math.hypot(dx, dz) || 1;
-    if (dd > 0.9) { h.x = pl.pos.x - (dx / dd) * 0.9; h.z = pl.pos.z - (dz / dd) * 0.9; }
+    // close, but far enough that his face fits the view (his head leans ~0.4 m forward of his body)
+    const GD = 1.15;
+    if (dd > GD) { h.x = pl.pos.x - (dx / dd) * GD; h.z = pl.pos.z - (dz / dd) * GD; }
     h.heading = Math.atan2(pl.pos.x - h.x, pl.pos.z - h.z);
     h._sync();
     pl.forcedLook = { x: h.x, y: 1.95, z: h.z, speed: 14 };
@@ -646,6 +652,9 @@ export class Game {
       pl.stamina = 1;
       const dx = pl.pos.x - h.x, dz = pl.pos.z - h.z, d = Math.hypot(dx, dz) || 1;
       pl.vel.set((dx / d) * 5, (dz / d) * 5);
+      // a dim light lingers where you broke free (~8 s) so you can see enough to run.
+      // 'world' source: he doesn't hear it and it doesn't reveal evidence.
+      this.sound({ x: pl.pos.x, z: pl.pos.z, y: 1.2, radius: 7.5, strength: 0.75, speed: 9, hold: 5.5, tail: 2.5, source: 'world', kind: 'escape' });
       this.audio.play('gasp', { gain: 0.9 });
       this.ui.hint('Run.', 2200, true);
     }, () => this.die());
@@ -673,9 +682,21 @@ export class Game {
     this.struggle = { t: 0, p: 0, next: 'A', canEscape, onWin, onLose, dur: canEscape ? 3.4 : 1.2 };
   }
 
+  // Keep the camera on his face (not his body) while he holds you.
+  faceHush() {
+    const h = this.hush, pl = this.player;
+    const p = this._headTmp || (this._headTmp = new THREE.Vector3());
+    h.m.head.updateWorldMatrix(true, false);
+    h.m.head.getWorldPosition(p);
+    const dx = pl.eye.x - p.x, dz = pl.eye.z - p.z, d = Math.hypot(dx, dz) || 1;
+    // aim at the muzzle and open jaw: a little in front of and below the skull centre
+    pl.forcedLook = { x: p.x + (dx / d) * 0.22, y: p.y - 0.16, z: p.z + (dz / d) * 0.22, speed: 14 };
+  }
+
   updateStruggle(dt) {
     const s = this.struggle;
     s.t += dt;
+    if (this.player.forcedLook) this.faceHush();
     if (s.t > 0.55 && s.canEscape) {
       this.ui.struggle(true, s.p, s.next);
       if (this.input.actHit(s.next === 'A' ? 'left' : 'right')) {
@@ -704,7 +725,8 @@ export class Game {
     this.state = 'dead';
     pl.mode = 'locked';
     this.redFlash = 1;
-    this.audio.play('jumpscare', { gain: 1, rate: 0.85 });
+    // the death sting: same scare, but quieter and with the harsh top end filtered off
+    this.audio.play('jumpscare', { gain: 0.6, rate: 0.85, lowpass: 2600 });
     this.audio.setChase(0);
     this.holdout.end();
     this.stopTape();

@@ -146,9 +146,10 @@ export function bed(b, M, w = 1.5, l = 2.05, opts = {}) {
   b.collider(-w / 2 - 0.03, -l / 2, w / 2 + 0.03, l / 2, 0.6, 'bed');
 }
 
-export function nightstand(b, M) {
+// opts.noTopDrawer: leave the top drawer front out (Chapter1 adds a movable one)
+export function nightstand(b, M, opts = {}) {
   b.rbox(M.wood, 0, 0.3, 0, 0.48, 0.6, 0.42, 0.015);
-  b.box(M.darkWood, -0.2, 0.36, 0.21, 0.2, 0.52, 0.215);
+  if (!opts.noTopDrawer) b.box(M.darkWood, -0.2, 0.36, 0.21, 0.2, 0.52, 0.215);
   b.box(M.darkWood, -0.2, 0.08, 0.21, 0.2, 0.32, 0.215);
   b.cyl(M.brass, 0, 0.2, 0.225, 0.012, 0.012, 0.02, 8, Math.PI / 2);
   // lamp
@@ -256,6 +257,7 @@ export function bathSink(b, M) {
   b.collider(-0.28, -0.22, 0.28, 0.24, 1.0);
 }
 
+// opts.skipDrawers: drawer indices (west to east in local space) left out for movable ones
 export function counter(b, M, len = 2.0, opts = {}) {
   const d = 0.62, h = 0.9;
   b.box(M.paintedWood, -len / 2, 0.1, -d / 2, len / 2, h - 0.04, d / 2 - 0.03);
@@ -266,10 +268,11 @@ export function counter(b, M, len = 2.0, opts = {}) {
   for (let i = 0; i < n; i++) {
     const x0 = -len / 2 + i * cw;
     // drawer + door
-    b.box(M.paintedWood, x0 + 0.02, h - 0.2, d / 2 - 0.03, x0 + cw - 0.02, h - 0.06, d / 2 - 0.01);
+    const skip = opts.skipDrawers && opts.skipDrawers.includes(i);
+    if (!skip) b.box(M.paintedWood, x0 + 0.02, h - 0.2, d / 2 - 0.03, x0 + cw - 0.02, h - 0.06, d / 2 - 0.01);
     b.box(M.paintedWood, x0 + 0.02, 0.14, d / 2 - 0.03, x0 + cw - 0.02, h - 0.24, d / 2 - 0.01);
     b.box(M.trim, x0 + 0.06, 0.18, d / 2 - 0.012, x0 + cw - 0.06, h - 0.28, d / 2 - 0.004);
-    b.cyl(M.metal, x0 + cw / 2, h - 0.13, d / 2 + 0.005, 0.01, 0.01, 0.1, 6, 0, Math.PI / 2);
+    if (!skip) b.cyl(M.metal, x0 + cw / 2, h - 0.13, d / 2 + 0.005, 0.01, 0.01, 0.1, 6, 0, Math.PI / 2);
     b.cyl(M.metal, x0 + cw - 0.08, h - 0.42, d / 2 + 0.005, 0.01, 0.01, 0.1, 6);
   }
   if (opts.sink) {

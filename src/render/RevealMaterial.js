@@ -86,8 +86,10 @@ vec3 gatherReveal(vec3 p, vec3 n, out float ringOut) {
     // full brightness for a moment after the wave passes, then a quick drop to a dim afterglow
     // that lingers (B.y eases that out)
     float fresh = 1.0 - smoothstep(0.55, 0.85, passed);
-    float glow = B.x * (inside * B.y * fall * lam * (0.15 + 0.28 * fresh) + ring * 0.45 * fall);
     int ci = int(mod(code, 4.0));
+    // the player's own sounds (palette 0) peak a little lower than the world's
+    float peak = ci == 0 ? 0.22 : 0.28;
+    float glow = B.x * (inside * B.y * fall * lam * (0.15 + peak * fresh) + ring * (ci == 0 ? 0.4 : 0.45) * fall);
     col += uPalette[ci] * glow;
     ringOut += ring * fall * B.x;
   }

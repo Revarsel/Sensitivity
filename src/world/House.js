@@ -346,7 +346,8 @@ export class House {
     this.creaky.push({ x0: 5.0, z0: 5.0, x1: 5.5, z1: 7.0 }, { x0: 10.25, z0: 5.0, x1: 10.75, z1: 7.0 }, { x0: 14.75, z0: 5.0, x1: 15.25, z1: 7.0 });
 
     // ===== KITCHEN
-    at(13.1, 13.61, S, () => P.counter(b, M, 5.0, { sink: 0.1 }));
+    // drawers 1, 4, 5 are movable (Chapter1.makeDrawers): batteries + "search the drawers"
+    at(13.1, 13.61, S, () => P.counter(b, M, 5.0, { sink: 0.1, skipDrawers: [1, 4, 5] }));
     at(16.12, 13.6, S, () => P.stove(b, M));
     b.at(11.45, 0, 13.75, S, () => P.upperCabinet(b, M, 1.7));
     b.at(14.7, 0, 13.75, S, () => P.upperCabinet(b, M, 1.8));
@@ -365,7 +366,7 @@ export class House {
     // ===== DIANE'S BEDROOM
     at(3.0, 1.12, 0, () => P.bed(b, M, 1.5, 2.05, { blanket: M.fabricGreen }));
     at(1.95, 0.3, 0, () => P.nightstand(b, M));
-    at(4.05, 0.3, 0, () => P.nightstand(b, M));
+    at(4.05, 0.3, 0, () => P.nightstand(b, M, { noTopDrawer: true })); // key drawer is movable
     at(0.38, 2.6, E, () => P.wardrobe(b, M));
     this.hideSpots.push({ id: 'wardrobe', name: 'Wardrobe', x: 0.38, z: 2.6, out: { x: 1.1, z: 2.6 }, face: E, eyeY: 1.5, uses: 0 });
     this.hideSpots.push({ id: 'bed', name: 'Under the bed', x: 3.0, z: 1.5, out: { x: 3.0, z: 2.6 }, face: 0, eyeY: 0.2, uses: 0, under: true });

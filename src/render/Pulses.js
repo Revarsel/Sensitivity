@@ -66,7 +66,7 @@ export class PulseSystem {
 
   /**
    * Emit a reveal pulse.
-   * @param {object} o { x, y, z, radius, strength, speed, color, linger, euclid }
+   * @param {object} o { x, y, z, radius, strength, speed, color, linger, hold, tail, euclid, reveals }
    */
   emit(o) {
     const radius = Math.max(0.3, o.radius);
@@ -90,9 +90,32 @@ export class PulseSystem {
     s.age = 0;
     s.linger = o.linger ?? 1.4;
     // the dim afterglow outlives the front: linger holds it, then it takes about as long again to fade out
-    s.life = radius / s.speed + s.linger * 3.4;
+    // hold: seconds the dim afterglow stays after the front (default linger*1.3);
+    // tail: seconds it then takes to fade out (default linger*2.1)
+    s.hold = o.hold ?? s.linger * 1.3;
+    s.tail = o.tail ?? s.linger * 2.1;
+    s.life = radius / s.speed + s.hold + s.tail;
     s.fade = 1;
-    if (!s.euclid) this._writeField(best, this.field.compute(s.x, s.z, 0, radius + 0.5));
+    s.reveals = o.reveals ?? true;
+    s.id = this.nextId = (this.nextId || 0) + 1;
+    s.dist = null;
+    if (!s.euclid) { s.dist = this.field.compute(s.x, s.z, 0, radius + 0.5); this._writeField(best, s.dist); }
+    return best;
+  }
+
+  // Newest id of a (non-ambient) pulse whose wave has swept over this point inside its lit area,
+  // or 0. Same distance as the shader. Evidence uses it to light up when a new sound reaches it.
+  sweptOver(x, y, z) {
+    let best = 0;
+    for (const s of this.slots) {
+      if (!s.active || !s.reveals) continue;
+      const eu = Math.hypot(x - s.x, z - s.z);
+      if (eu > s.maxR) continue;
+      const geo = s.dist ? this.field.sample(s.dist, x, z) : eu;
+      const dy = y - s.y;
+      const d = Math.sqrt(geo * geo + dy * dy * 0.55);
+      if (d <= s.radius && d < s.maxR * 0.85 && s.id > best) best = s.id;
+    }
     return best;
   }
 
@@ -118,7 +141,7 @@ export class PulseSystem {
       // the bright stage (about 0.6 s after the wave passes each point) is timed in gatherReveal; this only fades the dim
       // afterglow: it holds while the front travels and for most of the linger, then eases out
       // (the power keeps the dim tail visible for longer: low values sit near the edge pass's threshold)
-      const t0 = travel + s.linger * 1.3;
+      const t0 = travel + s.hold;
       const t = Math.min(1, Math.max(0, (s.age - t0) / (s.life - t0)));
       s.fade = Math.pow(1 - t * t * (3 - 2 * t), 0.55);
       if (s.age >= s.life) { s.active = false; B[i].x = 0; continue; }

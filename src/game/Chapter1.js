@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { buildGroup } from '../world/Builder.js';
 import { ownMaterials } from './Interactions.js';
 import { PULSE } from '../render/Pulses.js';
-import { OBJECTIVES } from './Lore.js';
+import { OBJECTIVES, ITEMS } from './Lore.js';
 import { revealMaterial, PAT } from '../render/RevealMaterial.js';
 
 const K = (k, t) => `<span><kbd>${k}</kbd>${t}</span>`;
@@ -96,13 +96,14 @@ export class Chapter1 {
       },
       use: () => this.takeBatteries(),
     });
-    I.add({
+    this.emptyDrawers = I.add({
       id: 'drawer-empty', obj: hotspot(12.6, 0.78, 13.29, 1.6, 0.16, 0.06), hold: 0.8,
       enabled: () => this.flags.monitorDead && !this.inv.has('batteries'),
       prompt: () => ['E', 'Search the drawers', '<kbd>Hold</kbd>'],
       onHoldStart: () => { g.audio.play('drawer', { pos: { x: 12.6, y: 0.8, z: 13.3 }, gain: 0.7 }); g.sound({ x: 12.6, z: 13.2, y: 0.8, radius: 3.4, strength: 0.8, source: 'player', kind: 'drawer' }); },
-      use: () => g.ui.message('Cutlery. Candles. A cassette with the tape pulled out.'),
+      use: () => { this.flags.emptySearched = true; g.ui.message('Cutlery. Candles. A cassette with the tape pulled out.'); },
     });
+    this.makeDrawers();
 
     // ---- the baby monitor receiver on June's dresser
     this.monitor = add(buildGroup((b) => {
@@ -269,6 +270,8 @@ export class Chapter1 {
 
     const pl = g.player;
     pl.mode = 'walk'; pl.hidden = null; pl.forcedLook = null; pl.lookLimits = null; pl.stamina = 1; pl.breath = 1;
+    pl.glide = null;
+    this.drawerSnap = true;
     if (cp === 'start') {
       setDoor(H.doorFront, 1.4, false);
       pl.teleport(8.25, 13.25, 0, -0.04);
@@ -439,6 +442,61 @@ export class Chapter1 {
   }
 
   // ------------------------------------------------------------------ per-frame
+  // ------------------------------------------------------------------ drawers
+  // The searchable drawers are separate meshes (House leaves their fronts out of the merged furniture)
+  // that slide out while you hold E, back in if you let go early, and stay open once searched.
+  makeDrawers() {
+    const g = this.g, M = g.M;
+    const make = (px, pz, rot, slide, build) => {
+      const outer = new THREE.Group();
+      outer.position.set(px, 0, pz); outer.rotation.y = rot;
+      const inner = buildGroup(build);
+      outer.add(inner);
+      g.scene.add(outer);
+      return { inner, slide, open: 0 };
+    };
+    // Diane's nightstand, top drawer (nightstand local space, front faces +Z)
+    const nightstandDrawer = (b) => {
+      b.box(M.darkWood, -0.2, 0.36, 0.205, 0.2, 0.52, 0.222);
+      b.cyl(M.brass, 0, 0.44, 0.232, 0.012, 0.012, 0.02, 8, Math.PI / 2);
+      b.box(M.wood, -0.19, 0.37, -0.13, -0.18, 0.49, 0.205);
+      b.box(M.wood, 0.18, 0.37, -0.13, 0.19, 0.49, 0.205);
+      b.box(M.wood, -0.19, 0.37, -0.13, 0.19, 0.38, 0.205);
+      b.box(M.wood, -0.19, 0.37, -0.14, 0.19, 0.49, -0.13);
+      b.box(M.notePaper, -0.12, 0.38, -0.08, 0.02, 0.384, 0.1); // old letters
+    };
+    // kitchen counter drawer i (counter local space: len 5, 8 bays of 0.625 m, top at 0.9)
+    const counterDrawer = (i) => (b) => {
+      const cw = 0.625, x0 = -2.5 + i * cw;
+      b.box(M.paintedWood, x0 + 0.02, 0.7, 0.27, x0 + cw - 0.02, 0.84, 0.3);
+      b.cyl(M.metal, x0 + cw / 2, 0.77, 0.305, 0.01, 0.01, 0.1, 6, 0, Math.PI / 2);
+      b.box(M.paintedWood, x0 + 0.04, 0.71, -0.12, x0 + 0.05, 0.82, 0.27);
+      b.box(M.paintedWood, x0 + cw - 0.05, 0.71, -0.12, x0 + cw - 0.04, 0.82, 0.27);
+      b.box(M.paintedWood, x0 + 0.04, 0.71, -0.12, x0 + cw - 0.04, 0.72, 0.27);
+      b.box(M.paintedWood, x0 + 0.04, 0.71, -0.13, x0 + cw - 0.04, 0.82, -0.12);
+    };
+    const S = Math.PI;
+    this.drawers = [
+      { d: make(4.05, 0.3, 0, 0.24, nightstandDrawer), it: this.keyDrawer, done: () => this.flags.keyFound },
+      { d: make(13.1, 13.61, S, 0.3, counterDrawer(1)), it: this.battDrawer, done: () => this.inv.has('batteries') },
+      { d: make(13.1, 13.61, S, 0.28, counterDrawer(4)), it: this.emptyDrawers, done: () => this.flags.emptySearched },
+      { d: make(13.1, 13.61, S, 0.22, counterDrawer(5)), it: this.emptyDrawers, done: () => this.flags.emptySearched, lag: 0.25 },
+    ];
+  }
+
+  updateDrawers(dt, snap = false) {
+    const I = this.g.interactions;
+    for (const dr of this.drawers || []) {
+      const holding = I.current === dr.it && I.holdT > (dr.lag || 0);
+      const target = dr.done() || holding ? 1 : 0;
+      const d = dr.d;
+      if (snap) d.open = target;
+      else d.open = target > d.open ? Math.min(1, d.open + dt * 1.8) : Math.max(0, d.open - dt * 2.2);
+      const k = d.open * d.open * (3 - 2 * d.open);
+      d.inner.position.z = d.slide * k;
+    }
+  }
+
   update(dt) {
     const g = this.g, H = g.house, pl = g.player;
     this.t += dt;
@@ -446,6 +504,14 @@ export class Chapter1 {
       if (this.t >= this.timeline[i].t) { const e = this.timeline[i]; this.timeline.splice(i, 1); e.fn(); }
     }
     this.ambient(dt);
+    this.updateDrawers(dt, this.drawerSnap);
+    this.drawerSnap = false;
+    // HUD inventory follows this.inv
+    const invKey = [...this.inv].join(',');
+    if (invKey !== this._invKey) {
+      this._invKey = invKey;
+      g.ui.inventory([...this.inv].filter((id) => ITEMS[id]).map((id) => ({ id, ...ITEMS[id] })));
+    }
 
     if (g.holdout?.active) return;
 
