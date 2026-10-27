@@ -109,6 +109,22 @@ export class Game {
     window.addEventListener('wheel', (e) => { if (this.docOpen) this.ui.scrollDoc(e.deltaY); }, { passive: true });
     this.timer = new THREE.Timer();
     this.setupMenuWorld();
+    this.prewarmGPU();
+  }
+
+  // Upload every texture and compile every shader now, so the first look into a room doesn't stutter.
+  prewarmGPU() {
+    const r = this.renderer, seen = new Set();
+    this.scene.traverse((o) => {
+      for (const m of [].concat(o.material || [])) {
+        for (const u of Object.values(m.uniforms || {})) {
+          const t = u && u.value;
+          if (t && t.isTexture && !t.isRenderTargetTexture && !seen.has(t)) { seen.add(t); r.initTexture(t); }
+        }
+        if (m.map && !seen.has(m.map)) { seen.add(m.map); r.initTexture(m.map); }
+      }
+    });
+    try { r.compile(this.scene, this.camera); } catch (e) { /* compile is only an optimisation */ }
   }
 
   on(evt, fn) { (this.listeners[evt] ||= []).push(fn); }

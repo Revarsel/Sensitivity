@@ -16,17 +16,20 @@ const NEIGH = [
 
 export const FIELD_INF = 999;
 
+// Binary min-heap of (cell, key) with float64 keys (float32 keys made ties look like
+// improvements and re-expanded cells ~25x over).
 class MinHeap {
   constructor(cap) {
     this.idx = new Int32Array(cap * 4);
-    this.key = new Float32Array(cap * 4);
+    this.key = new Float64Array(cap * 4);
     this.size = 0;
+    this.topKey = 0;
   }
   clear() { this.size = 0; }
   push(i, k) {
     if (this.size >= this.idx.length) {
       const ni = new Int32Array(this.idx.length * 2); ni.set(this.idx); this.idx = ni;
-      const nk = new Float32Array(this.key.length * 2); nk.set(this.key); this.key = nk;
+      const nk = new Float64Array(this.key.length * 2); nk.set(this.key); this.key = nk;
     }
     let n = this.size++;
     const I = this.idx, K = this.key;
@@ -54,6 +57,18 @@ class MinHeap {
     return top;
   }
 }
+
+// Per-neighbour lookup: [dx, dz, length, ...cells that must be open to pass (dx,dz pairs)].
+// Diagonal and knight moves may not cut wall corners.
+const MOVES = NEIGH.map(([dx, dz, len], k) => {
+  const req = [];
+  if (k >= 4) {
+    const sx = Math.sign(dx), sz = Math.sign(dz);
+    req.push(sx, 0, 0, sz);
+    if (k >= 8) req.push(Math.abs(dx) === 2 ? sx : 0, Math.abs(dz) === 2 ? sz : 0, sx, sz);
+  }
+  return { dx, dz, len, req };
+});
 
 export class SoundField {
   constructor({ minX, minZ, sizeX, sizeZ, cell = 0.25 }) {
@@ -102,25 +117,31 @@ export class SoundField {
     this.version++;
   }
 
-  // mode 0: visual (closed doors block), mode 1: hearing (closed doors muffle)
-  compute(x, z, mode = 0) {
+  // mode 0: visual (closed doors block), mode 1: hearing (closed doors muffle).
+  // maxDist: the search stops there (cells beyond read as far away). A sound only needs its own radius,
+  // so a footstep explores a small patch instead of the whole house.
+  compute(x, z, mode = 0, maxDist = Infinity) {
     const start = this.index(x, z);
     const key = start * 4 + mode + this.version * this.N * 4;
     const hit = this.cache.get(key);
-    if (hit) return hit;
+    if (hit && hit.lim >= maxDist) return hit.arr;
+    const lim = maxDist;
 
     const W = this.W, H = this.H, N = this.N;
-    const dist = new Float32Array(N).fill(FIELD_INF);
+    // blocked mask for this mode: -1 = blocked, otherwise extra cost in cells (closed door, hearing)
+    const blk = this._blk || (this._blk = new Int8Array(N));
     const wall = this.wall, door = this.door, dc = this.doorClosed;
-    const cost = (i) => {
-      if (wall[i]) return -1;
+    for (let i = 0; i < N; i++) {
       const d = door[i];
-      if (d >= 0 && dc[d]) return mode === 0 ? -1 : 6; // 6 = muffled through closed door
-      return 0;
-    };
+      blk[i] = wall[i] ? -1 : d >= 0 && dc[d] ? (mode === 0 ? -1 : 6) : 0; // 6 = muffled through closed door
+    }
+    const D = this._d64 || (this._d64 = new Float64Array(N));
+    const done = this._done || (this._done = new Uint8Array(N));
+    D.fill(FIELD_INF); done.fill(0);
+    const dist = new Float32Array(N).fill(FIELD_INF);
     const heap = this.heap; heap.clear();
     let s = start;
-    if (cost(s) < 0) {
+    if (blk[s] < 0) {
       // origin inside a wall: find nearest open cell
       let best = -1, bd = 1e9;
       const sx = s % W, sz = (s / W) | 0;
@@ -128,40 +149,40 @@ export class SoundField {
         const nx = sx + dx, nz = sz + dz;
         if (nx < 0 || nz < 0 || nx >= W || nz >= H) continue;
         const ni = nz * W + nx;
-        if (cost(ni) >= 0 && dx * dx + dz * dz < bd) { bd = dx * dx + dz * dz; best = ni; }
+        if (blk[ni] >= 0 && dx * dx + dz * dz < bd) { bd = dx * dx + dz * dz; best = ni; }
       }
-      if (best < 0) { this._store(key, dist); return dist; }
+      if (best < 0) { this._store(key, dist, Infinity); return dist; }
       s = best;
     }
-    dist[s] = 0;
+    D[s] = 0;
     heap.push(s, 0);
     const cell = this.cell;
     while (heap.size > 0) {
       const i = heap.pop();
+      if (done[i]) continue;
+      done[i] = 1;
       const di = heap.topKey;
-      if (di > dist[i]) continue;
+      if (di > lim) break; // everything left is farther than anyone needs
       const ix = i % W, iz = (i / W) | 0;
       for (let k = 0; k < 16; k++) {
-        const nb = NEIGH[k];
-        const nx = ix + nb[0], nz = iz + nb[1];
+        const mv = MOVES[k];
+        const nx = ix + mv.dx, nz = iz + mv.dz;
         if (nx < 0 || nz < 0 || nx >= W || nz >= H) continue;
         const ni = nz * W + nx;
-        const c = cost(ni);
+        if (done[ni]) continue;
+        const c = blk[ni];
         if (c < 0) continue;
-        if (k >= 4) {
-          // diagonal / knight: require the cells we cut past to be open
-          const ax = ix + Math.sign(nb[0]), az = iz + Math.sign(nb[1]);
-          if (cost(iz * W + ax) < 0 || cost(az * W + ix) < 0) continue;
-          if (k >= 8) {
-            const mx = ix + (Math.abs(nb[0]) === 2 ? Math.sign(nb[0]) : 0);
-            const mz = iz + (Math.abs(nb[1]) === 2 ? Math.sign(nb[1]) : 0);
-            if (cost(mz * W + mx) < 0 || cost(az * W + ax) < 0) continue;
-          }
+        const req = mv.req;
+        let ok = true;
+        for (let r = 0; r < req.length; r += 2) {
+          if (blk[(iz + req[r + 1]) * W + ix + req[r]] < 0) { ok = false; break; }
         }
-        const nd = di + nb[2] * cell + c * cell;
-        if (nd < dist[ni]) { dist[ni] = nd; heap.push(ni, nd); }
+        if (!ok) continue;
+        const nd = di + (mv.len + c) * cell;
+        if (nd < D[ni] - 1e-9) { D[ni] = nd; heap.push(ni, nd); }
       }
     }
+    for (let i = 0; i < N; i++) dist[i] = D[i];
     // Dilate into blocked cells so wall faces receive the value from their own side.
     const out = new Float32Array(dist);
     for (let pass = 0; pass < 2; pass++) {
@@ -177,13 +198,13 @@ export class SoundField {
         if (m < FIELD_INF) out[i] = m + cell;
       }
     }
-    this._store(key, out);
+    this._store(key, out, lim);
     return out;
   }
 
-  _store(key, arr) {
-    this.cache.set(key, arr);
-    this.cacheOrder.push(key);
+  _store(key, arr, lim) {
+    if (!this.cache.has(key)) this.cacheOrder.push(key);
+    this.cache.set(key, { arr, lim });
     if (this.cacheOrder.length > 600) this.cache.delete(this.cacheOrder.shift());
   }
 

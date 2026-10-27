@@ -91,7 +91,7 @@ export class PulseSystem {
     // the dim afterglow outlives the front: linger holds it, then it takes about as long again to fade out
     s.life = radius / s.speed + s.linger * 2.8;
     s.fade = 1;
-    if (!s.euclid) this._writeField(best, this.field.compute(s.x, s.z, 0));
+    if (!s.euclid) this._writeField(best, this.field.compute(s.x, s.z, 0, radius + 0.5));
     return best;
   }
 

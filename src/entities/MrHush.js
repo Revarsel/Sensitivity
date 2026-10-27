@@ -89,8 +89,10 @@ export class MrHush {
     if (this.state === 'dormant' && this.wakeable) {
       // asleep in the chair: he only stirs for loud noise, but noise adds up
       const f = this.g.house.field;
-      const dd = f.sample(f.compute(o.x, o.z, 1), this.x, this.z);
-      const k = 1 - dd / (o.radius * this.hearMul * 0.85);
+      const r = o.radius * this.hearMul * 0.85;
+      if (Math.hypot(o.x - this.x, o.z - this.z) > r) return; // the path is never shorter than a straight line
+      const dd = f.sample(f.compute(o.x, o.z, 1, r + 0.5), this.x, this.z);
+      const k = 1 - dd / r;
       if (k > 0) {
         this.lookTarget = Math.atan2(o.x - this.x, o.z - this.z) - this.heading;
         this.sleepNoise = (this.sleepNoise || 0) + k;
@@ -117,8 +119,9 @@ export class MrHush {
     // after a check came up empty he gives up on this spot: quiet sounds from a hiding player don't pull him back
     if (this.leaving() && o.soft && o.source === 'player' && this.g.player.hidden) return;
     const field = this.g.house.field;
-    const dist = field.sample(field.compute(o.x, o.z, 1), this.x, this.z);
     const reach = o.radius * this.hearMul;
+    if (Math.hypot(o.x - this.x, o.z - this.z) > reach) return; // too far even in a straight line
+    const dist = field.sample(field.compute(o.x, o.z, 1, reach + 0.5), this.x, this.z);
     if (dist > reach) return;
     const intensity = 1 - dist / reach;
     if (intensity <= 0.02) return;
