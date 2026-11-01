@@ -3,7 +3,7 @@
 A critical pass over Chapter 1. I went through the game in order (boot, menu, prologue, the house, documents, evidence, being hunted and grabbed, hiding, June's room, the holdout's monitor, door, window and Thimble, dawn, end and death), capturing 1280×720 frames at each step and checking suspicious spots with measurements. Each item says what's wrong, why it matters, and a suggested fix.
 
 **Effort:** S = under an hour · M = a few hours · L = a day or more.
-**Status:** tick items off (or delete them) as they're done. Items marked **[Done]** were fixed on the `fix/top-issues-and-hiding` branch.
+**Status:** tick items off (or delete them) as they're done. Items marked **[Done]** were fixed on the `fix/top-issues-and-hiding` and `feature/mouse-interact-jumpscare-polish` branches. The second also made interact a left click by default (rebindable) and turned the grab into a real jumpscare with screen shake.
 
 ---
 
@@ -17,9 +17,9 @@ A critical pass over Chapter 1. I went through the game in order (boot, menu, pr
 | 4 | ~~Nothing teaches that evidence lights up when a sound reaches it~~ **Done**: chime + first-time hint | Clarity | S |
 | 5 | You can wake him in the first minute, before the game has taught stealth | Onboarding | S |
 | 6 | One key (L) does two opposite things in the holdout | Clarity | S |
-| 7 | The first window attack is very punishing for a first-timer | Difficulty | S |
-| 8 | Dawn is an anticlimax: the room barely brightens | Payoff | M |
-| 9 | The main menu's background is pure black | First impression | S |
+| 7 | ~~The first window attack is very punishing for a first-timer~~ **Done**: first visit gets a louder tap, a spoken cue and 4 s | Difficulty | S |
+| 8 | ~~Dawn is an anticlimax: the room barely brightens~~ **Done**: 7 s sunrise, warm light through the window | Payoff | M |
+| 9 | ~~The main menu's background is pure black~~ **Done**: a faint red breathing pulse outlines him in his chair | First impression | S |
 | 10 | No difficulty setting | Accessibility | M |
 
 ---
@@ -78,7 +78,7 @@ A critical pass over Chapter 1. I went through the game in order (boot, menu, pr
 
 15. **No difficulty setting.** Friends who aren't horror veterans will hit walls (the 5 AM door needs ~3 correct presses a second; the window gives 1.75 s).
     *Fix:* Story / Normal / Hard. These would scale his hearing radius, holdout timings (react time, door push, Thimble's rise), the re-catch window, and breath capacity. (M)
-16. **Window difficulty spike.** A faint tap is the only warning and the first visit already gives just 2.5 s.
+16. **[Done] Window difficulty spike.** A faint tap is the only warning and the first visit already gives just 2.5 s.
     *Fix:* make the *first* window visit each night slower (4 s), with a clearer tell (wet hand smear, a louder first tap, June's voice starting before he arrives). (S)
 17. **A holdout death costs the whole night.** Dying at 5:50 restarts at 3:00 (about 4 minutes).
     *Fix:* add a 4:00 or 5:00 checkpoint on Story and Normal, or let the player keep the hour. (S)
@@ -99,9 +99,9 @@ A critical pass over Chapter 1. I went through the game in order (boot, menu, pr
 
 ## 4. Visuals and atmosphere
 
-23. **Empty main menu.** The menu is meant to be a live scene of Mr. Hush in his chair, but his chair is only revealed when you hover menu items, so most of the time the right side is black.
+23. **[Done] Empty main menu.** The menu is meant to be a live scene of Mr. Hush in his chair, but his chair is only revealed when you hover menu items, so most of the time the right side is black.
     *Fix:* every few seconds, a faint ripple from the clock or a drip, or his own slow breathing, briefly outlines him. Distant lightning flashes help too. (S)
-24. **Dawn should be a release.** At 6:00 the room stays mostly dark outlines.
+24. **[Done] Dawn should be a release.** At 6:00 the room stays mostly dark outlines.
     *Fix:* a proper sunrise: ramp a soft grey-blue ambient to show the room fully shaded over ~10 s, light dust in the window, then let the birdsong (which exists) carry the moment. (M)
 25. **Thimble needs more detail.** He reads as a small, simple doll. Add a painted face (blush, painted lashes, one cracked eye), a cap, hands with too many fingers, and occasional slow head turns toward you even at low agitation. (M)
 26. **Mr. Hush's grab could show more gore**, matching the tone you chose (FNAF plus some gore): wet stuffing from the torn mouth, the needles closing in, a smear on the lens. (M)

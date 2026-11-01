@@ -7,7 +7,7 @@ Related docs:
 - `docs/LORE.md`: the story.
 - `docs/CHAPTER_1_PLAN.md`: the Chapter 1 design.
 
-*Last updated: Chapter 1 complete, with the holdout rework (door fight, window, Thimble) and Mr. Hush's clipping fixes.*
+*Last updated: Chapter 1 complete, with the holdout rework (door fight, window, Thimble), Mr. Hush's clipping fixes, click-to-interact, the new jumpscare and the sunrise.*
 
 ---
 
@@ -61,7 +61,7 @@ Every frame goes through these stages:
 Other visual pieces:
 - **Lightning** briefly lights everything through the windows.
 - The **baby monitor** renders the house from security cameras with an infrared ambient light, then applies the green night-vision grade, scanlines and static.
-- **Dawn** slowly raises an ambient light so you finally see June's room.
+- **Dawn** is a 7-second sunrise: an ambient light warms from cold grey-blue to soft daylight, and a gentle warm pulse from June's window washes the room.
 - Small things: drifting dust, glass that only shimmers where sound passes, Mr. Hush's faint button-eye glints in the dark.
 
 ### Keeping it fast
@@ -94,10 +94,11 @@ Other visual pieces:
 - Noise is multiplied by the floor: carpet ×0.6, rug ×0.5, wood ×1, tile ×1.3, glass ×2.2, grass ×0.7.
 - **Knock (Q)** makes a sound on purpose to see, with a 0.85 s cooldown so it can't be spammed.
 - **Breath (Space):** within 4.5 m of Mr. Hush your breathing is audible to him. Hold it (about 6.5 s, or 12 s while hidden). Running out makes you gasp, which he hears, and your vision tunnels as you near passing out.
-- **Doors:** tap E to open fast and loud, or hold E to open slowly and quietly.
+- **Interact** is the left mouse button by default (rebindable, also to a keyboard key). Mouse buttons are bindable like keys (`Mouse0/1/2`) and only count while the mouse is captured, so menu clicks never reach the game. Old saves still on E are moved to the click once.
+- **Doors:** tap interact to open fast and loud, or hold it to open slowly and quietly.
 - **Hiding:** wardrobe, linen closet, under the bed. The camera glides in and out instead of teleporting. Only your breathing gives you away: hold your breath while he checks and he leaves, even if he saw you get in (then he looks longer). Breathing near him sends him straight to your spot to check it.
-- **Throwing:** pick up bottles and blocks and throw them as decoys. A throw only counts if the mouse press started during play, so clicking a menu button never throws.
-- **Camera:** head bob (optional), a lean when strafing, fear sway, shake (reduced by the *Reduce flashing* setting), and a "forced look" for grabs and cutscenes.
+- **Throwing:** pick up bottles and blocks and throw them as decoys. A throw only counts if the mouse press started during play, so clicking a menu button never throws. Clicking while aiming at something usable interacts instead of throwing, so you can open a door with a bottle in hand.
+- **Camera:** head bob (optional), a lean when strafing, fear sway, shake (position jitter plus a little random tilt; reduced to 30% by the *Reduce flashing* setting), and a "forced look" for grabs and cutscenes. Shake hits 1.6 at a jumpscare, and every tap while struggling shakes the view again.
 
 ---
 
@@ -111,6 +112,7 @@ Other visual pieces:
   - **Push-out:** every frame his body is pushed out of walls and furniture as a safety net for stumbles, corners and teleports.
   - **His chair:** Mom's armchair is stretched so he actually sits in it.
 - **Grab placement:** when he grabs you, he's always placed 1.15 m in front of you on a clear spot with no wall between. This keeps his face in view and the camera steady.
+- **The jumpscare** (any grab, and the holdout catch): the camera snaps to his face in about 0.1 s while he lunges from 0.9 m, so his teeth fill the screen. The field of view punches in 22° and springs back within about a second, his head thrashes, the screen flashes white and red and warps for a moment, and a scream (detuned, band-passed saw waves) plays over the jumpscare sting and a wet tearing sound. *Reduce flashing* cuts the flash, warp, zoom and shake.
 
 ---
 
@@ -172,9 +174,9 @@ A FNAF-style finale in June's room. You sit; you can look around but can't walk.
 - **Mr. Hush** moves along a graph of rooms (living room, foyer, kitchen, hallway, June's door, the back door, the yard and June's window). Each hour he moves more often and attacks sooner.
 - **Baby monitor (Space, then 1/2/3):** night-vision feeds of three rooms. It drains battery while raised and shows static when he's near the camera. **L with the monitor up** plays the lullaby in that room to lure him there.
 - **The door:** it starts closed. After a warning (sniffing, scratching, the handle) he forces it. The camera turns to the door and **one key (W/A/S/D) pops up at a time**: the right key pushes it back, a wrong one lets him in further. Win and the door slams; he bangs on it 3–5 times and leaves. Bot-tuned: you need about 2, 2.5 and 3 correct presses a second at 3, 4 and 5 AM.
-- **The window:** a faint tap is the only warning. Then you have 2.5 s (1.75 s by 5 AM) to look at it and hold the mouse to shut the shutters, and you must keep holding for 2.4 s while he tries them.
+- **The window:** a faint tap is the only warning. Then you have 2.5 s (1.75 s by 5 AM) to look at it and hold the mouse to shut the shutters, and you must keep holding for 2.4 s while he tries them. His first window visit each night is gentler: a louder tap, June calling "Ellis… I'm at the window.", and 4 s to react.
 - **Thimble:** the doll's agitation rises all night. You see it in his **shadow growing up the wall**, the chair rocking harder, and a slow heartbeat thud from the chair that speeds up (each beat throws a red pulse that lights his shadow). **L with the monitor down** winds the music box and calms him, but it's Mr. Hush's song, so it draws him to June's room for 16 s. At full agitation Thimble kills you.
-- **Dawn:** he walks back to his chair, the room fills with grey light, and the last tape is in the monitor.
+- **Dawn:** he walks back to his chair while the room warms through a 7-second sunrise; birds start, and the last tape is in the monitor.
 
 In a full-night bot test, a player pressing 3.2 keys a second and singing at 65% agitation survives with about 4–7 door attacks and 1–4 window visits.
 
@@ -182,7 +184,7 @@ In a full-night bot test, a player pressing 3.2 keys a second and singing at 65%
 
 ## 10. Stages, flow and saving
 
-- **Game states:** boot → menu (a live scene of Mr. Hush in his chair) → prologue → play ⇄ cutscene → holdout → (dawn) play → end; and dead. Pause, documents and menus are overlays.
+- **Game states:** boot → menu (a live scene of Mr. Hush in his chair, outlined by a faint red pulse every few seconds as if he breathes) → prologue → play ⇄ cutscene → holdout → (dawn) play → end; and dead. Pause, documents and menus are overlays.
 - **Chapter 1 flow:**
   1. The foyer. Find June's room.
   2. Find the key in Diane's nightstand, which wakes him.

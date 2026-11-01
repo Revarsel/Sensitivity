@@ -44,6 +44,7 @@ const PARAMS = [
 ];
 const FIGHT_KEYS = ['forward', 'left', 'back', 'right']; // W A S D by default (rebindable)
 const PUSH_BACK = 0.07, WRONG_KEY = 0.05, WINDOW_HOLD = 2.4;
+const FIRST_WINDOW_REACT = 4; // seconds to get the shutters shut on his first window visit each night
 
 export class Holdout {
   constructor(game) {
@@ -77,6 +78,8 @@ export class Holdout {
     this.holding = null;
     this.fight = null;
     this.drawn = 0;
+    this.windowSeen = false;
+    this.sunrise = false;
     this.doorShake = 0;
     this.dawn = false;
     this.lastHour = -1;
@@ -317,8 +320,10 @@ export class Holdout {
           if (this.node === 'DOOR') this.arriveDoor();
           else if (this.node === 'WINDOW') this.arriveWindow();
           else if (this.node === 'YARD' && this.goal === 'WINDOW') {
-            // something brushes the glass: the only warning before the window
-            g.audio.play('knock', { pos: { x: 17.1, y: 1.4, z: 2.5 }, gain: 0.18, rate: 2.4 });
+            // something brushes the glass: the only warning before the window (clearer the first time)
+            const first = !this.windowSeen;
+            g.audio.play('knock', { pos: { x: 17.1, y: 1.4, z: 2.5 }, gain: first ? 0.5 : 0.18, rate: 2.4 });
+            if (first) g.subtitle('June?', 'Ellis… I’m at the window.', 2.4, true);
             this.mode = 'idle'; this.timer = 0.6;
           }
           else if (this.lureLinger && this.node === this.lureNode) { this.mode = 'linger'; this.timer = 9 + Math.random() * 3; this.lureLinger = false; }
@@ -427,7 +432,9 @@ export class Holdout {
     const g = this.g, h = g.hush;
     this.mode = 'atWindow';
     this.windowPhase = 'react';
-    this.timer = this.params.react; // short on purpose
+    // short on purpose, except the first visit of the night (you're still learning the room)
+    this.timer = this.windowSeen ? this.params.react : Math.max(FIRST_WINDOW_REACT, this.params.react);
+    this.windowSeen = true;
     this.cueT = 0;
     h.voice.cut();
     h.heading = -Math.PI / 2;
@@ -641,9 +648,15 @@ export class Holdout {
     const g = this.g;
     this.dawnT += dt;
     this.thimble.update(dt, 0); // he settles with the light
-    const k = Math.min(1, this.dawnT / 12);
+    // a real sunrise: cold grey-blue warming to soft daylight, finished before you stand up (8 s),
+    // because this update stops then. Plus a slow wash of light from June's window.
+    const u = Math.min(1, this.dawnT / 7), k = u * u * (3 - 2 * u);
     const a = g.shared.uAmbient.value;
-    a.set(0.78 + 0.1 * k, 0.72 + 0.06 * k, 0.7, 0.42 * k * k);
+    a.set(0.55 + 0.43 * k, 0.62 + 0.24 * k, 0.82 - 0.1 * k, 0.72 * k);
+    if (this.dawnT > 1.2 && !this.sunrise) {
+      this.sunrise = true;
+      g.sound({ x: 17.4, z: 2.5, y: 1.5, radius: 10, strength: 0.38, color: PULSE.WORLD, source: 'world', speed: 2.5, hold: 30, tail: 6, euclid: true });
+    }
     if (this.dawnT > 1 && !this.birds) { this.birds = true; g.birdsong(); }
     if (this.dawnT > 4 && !this.dawnMsg) {
       this.dawnMsg = true;

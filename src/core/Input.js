@@ -29,6 +29,8 @@ export class Input {
       this.released.add(e.code);
     });
     window.addEventListener('blur', () => { this.keys.clear(); this.mouse.buttons = 0; });
+    // Mouse buttons also act as bindable codes ('Mouse0' left, 'Mouse1' middle, 'Mouse2' right), but only
+    // for clicks made in play (mouse captured): a click on Resume or a menu button never interacts.
     window.addEventListener('mousemove', (e) => {
       if (this.locked || this.allowUnlockedLook) {
         this.mouse.dx += e.movementX || 0;
@@ -36,12 +38,17 @@ export class Input {
       }
     });
     window.addEventListener('mousedown', (e) => {
+      const code = 'Mouse' + e.button;
+      if (this.capture) { e.preventDefault(); const c = this.capture; this.capture = null; c(code); return; }
       this.mouse.buttons |= 1 << e.button;
       this.mouse.pressed.add(e.button);
+      if (this.locked || this.allowUnlockedLook) { this.keys.add(code); this.pressed.add(code); }
     });
     window.addEventListener('mouseup', (e) => {
+      const code = 'Mouse' + e.button;
       this.mouse.buttons &= ~(1 << e.button);
       this.mouse.released.add(e.button);
+      if (this.keys.delete(code)) this.released.add(code);
     });
     window.addEventListener('contextmenu', (e) => { if (this.locked) e.preventDefault(); });
     document.addEventListener('pointerlockchange', () => {

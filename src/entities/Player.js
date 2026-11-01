@@ -193,7 +193,9 @@ export class Player {
     this.roll += ((-strafe * 0.012) + Math.cos(this.bobPhase) * 0.004 * bob - this.roll) * Math.min(1, dt * 6);
     this.camera.rotation.order = 'YXZ';
     if (this.forcedLook) { camYaw = this.yaw; camPitch = this.pitch; }
-    this.camera.rotation.set(camPitch + iy, camYaw + ix, this.roll);
+    // shake rattles the view as well as the position (grabs, impacts)
+    const rsh = sh * 0.7;
+    this.camera.rotation.set(camPitch + iy + (Math.random() - 0.5) * rsh, camYaw + ix + (Math.random() - 0.5) * rsh, this.roll + (Math.random() - 0.5) * rsh * 0.6);
   }
 
   surface() { return this.house.surfaceAt(this.pos.x, this.pos.z); }

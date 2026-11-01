@@ -255,6 +255,23 @@ export function buildBank(ctx) {
     D.softclip(x, 3.2);
     put('jumpscare', D.normalize(x, 1.0));
   }
+  {
+    // a torn, wet shriek layered on the jump scare: wavering detuned throats through vocal formants
+    const r = R();
+    const sec = 1.5;
+    const x = D.buf(sec);
+    for (const [f0, g] of [[205, 0.5], [211, 0.45], [316, 0.35], [431, 0.28]]) {
+      const o = D.osc(sec, (t) => f0 * (1.4 - 0.55 * t / sec) * (1 + 0.07 * Math.sin(t * 2 * Math.PI * 9 + f0)), (t) => Math.min(1, t / 0.01) * Math.exp(-t / 0.65), 'saw');
+      D.mix(x, o, g);
+    }
+    const y = D.buf(sec);
+    D.mix(y, D.biquad(x.slice(), 'bp', 900, 2.2), 1);
+    D.mix(y, D.biquad(x.slice(), 'bp', 1400, 3), 0.8);
+    D.mix(y, D.biquad(x.slice(), 'bp', 2800, 4), 0.6);
+    D.mix(y, D.env(D.biquad(D.white(y.length, r), 'bp', 3300, 1.2), 0.004, 0.45), 0.55);
+    D.softclip(y, 4);
+    put('shriek', D.normalize(y, 0.95));
+  }
 
   // ---------------------------------------------------------------- house + ambience
   for (let v = 0; v < 2; v++) {

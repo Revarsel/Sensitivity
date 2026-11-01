@@ -21,7 +21,7 @@ export const DEFAULTS = {
   quality: 'high',
   autoRes: true,
   showFps: true,
-  rev: 1, // settings migrations: bump and handle in loadSettings
+  rev: 2, // settings migrations: bump and handle in loadSettings
   keybinds: defaultBinds(),
 };
 
@@ -39,6 +39,8 @@ export function loadSettings() {
       if (s.keybinds && s.keybinds.creep === 'ControlLeft') s.keybinds.creep = 'KeyC';
       // rev 1: the FPS counter became on by default (older saves stored it off)
       if ((s.rev ?? 0) < 1) { s.showFps = true; s.rev = 1; }
+      // rev 2: interact moved from E to left click (only if it was still on the old default)
+      if (s.rev < 2) { if (s.keybinds && s.keybinds.interact === 'KeyE') s.keybinds.interact = 'Mouse0'; s.rev = 2; }
       return { ...DEFAULTS, ...s, keybinds: { ...defaultBinds(), ...(s.keybinds || {}) } }; }
   } catch (e) { /* storage unavailable */ }
   return { ...DEFAULTS, keybinds: defaultBinds() };

@@ -449,7 +449,7 @@ export class Chapter1 {
   // ------------------------------------------------------------------ per-frame
   // ------------------------------------------------------------------ drawers
   // The searchable drawers are separate meshes (House leaves their fronts out of the merged furniture)
-  // that slide out while you hold E, back in if you let go early, and stay open once searched.
+  // that slide out while you hold interact, back in if you let go early, and stay open once searched.
   makeDrawers() {
     const g = this.g, M = g.M;
     const make = (px, pz, rot, slide, build) => {

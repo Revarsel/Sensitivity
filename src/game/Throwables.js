@@ -121,7 +121,9 @@ export class Throwables {
     if (this.held && g.player.mode === 'walk') {
       // only a press that starts during play throws: the release of a menu click (Resume,
       // or the click that re-captures the mouse) must not
-      if (input.mouseHit(0)) this.armed = true;
+      // left click is shared with interact: aimed at something usable it interacts, otherwise it throws
+      const clickInteracts = input.is('interact', 'Mouse0') && g.interactions.current;
+      if (input.mouseHit(0) && !clickInteracts) this.armed = true;
       if (this.armed && input.mouseDown(0)) this.charge = Math.min(1, this.charge + dt * 1.5);
       if (input.mouseUp(0)) {
         if (this.armed) this.throw();

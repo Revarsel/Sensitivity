@@ -119,6 +119,8 @@ export class Game {
     this.applySettings();
     this.resize();
     window.addEventListener('resize', () => { this.resize(); if (this.docOpen) this.ui.fitDoc(); });
+    // a click (when interact is on a mouse button) puts an open document down
+    window.addEventListener('mousedown', (e) => { if (this.docOpen && this.input.is('interact', 'Mouse' + e.button)) this.closeDoc(); });
     // a captured mouse sends the wheel to the canvas, so scroll an open document by hand
     window.addEventListener('wheel', (e) => { if (this.docOpen) this.ui.scrollDoc(e.deltaY); }, { passive: true });
     window.addEventListener('keydown', (e) => this.onKey(e));
@@ -397,6 +399,8 @@ export class Game {
     this.lastEscape = -99;
     this.state = 'play';
     this.resetPause();
+    // a scare cut short by death or a restart must not leave the HUD dimmed or the view zoomed
+    this.scare = null; this.ui.hudDim(false); this.camera.fov = this.settings.fov; this.camera.updateProjectionMatrix();
     this.ui.hud(true);
     this.chapter.start(cp);
     if (cp !== 'holdout') this.checkpoint(cp, true);
@@ -720,10 +724,6 @@ export class Game {
     this.throwables.dropHeld();
     pl.mode = 'grabbed';
     const h = this.hush;
-    this.audio.play('jumpscare', { gain: 1.0, reverb: 0.2 });
-    this.audio.play('hush_wet', { gain: 0.8 });
-    this.redFlash = 1;
-    pl.shake = 1.4;
     this.fear = 1;
     // he is right in your face, always at the same distance: never on top of you (the camera would
     // look straight up and its yaw would flip) and never inside a wall
@@ -733,6 +733,7 @@ export class Game {
     h._sync();
     this.faceHush();
     h.m.pose.jaw = 1;
+    this.startScare(true);
     this.ui.clearHint();
     this.ui.setPrompt(null);
     // you can always fight him off, unless he gets you again while you're still catching your breath
@@ -761,10 +762,8 @@ export class Game {
   // the holdout has no second chance: a short, unwinnable grab, then death
   holdoutCaught() {
     const pl = this.player, h = this.hush;
-    this.audio.play('jumpscare', { gain: 1.0, reverb: 0.2 });
-    this.redFlash = 1;
-    pl.shake = 1.4;
     pl.forcedLook = { x: h.x, y: 1.9, z: h.z, speed: 14 };
+    this.startScare(false);
     h.m.pose.jaw = 1; h.m.pose.grab = 1;
     if (this.holdout.monitorUp) this.holdout.toggleMonitor();
     this.startStruggle(false, () => {}, () => this.die(true));
@@ -820,6 +819,55 @@ export class Game {
     h.heading = Math.atan2(pl.pos.x - h.x, pl.pos.z - h.z);
   }
 
+  // The jump scare when he grabs you (~1.1 s, then the struggle): the view snaps to his face as it
+  // lunges at you, the field of view punches in, a white then red flash, a lens warp, his head
+  // thrashes with the jaw torn open, and a shriek on top of the sting. Toned down by Reduce flashing.
+  startScare(lunge) {
+    const pl = this.player, h = this.hush;
+    const dx = h.x - pl.pos.x, dz = h.z - pl.pos.z, d = Math.hypot(dx, dz) || 1;
+    this.scare = { t: 0, lunge: lunge && d > 0.95, dx: dx / d, dz: dz / d, near: 0.9 };
+    if (this.scare.lunge) { h.x = pl.pos.x + this.scare.dx * 0.9; h.z = pl.pos.z + this.scare.dz * 0.9; h._sync(); }
+    if (pl.forcedLook) pl.forcedLook.speed = 60; // snap, don't turn (faceHush keeps it fast for 0.15 s)
+    this.audio.play('jumpscare', { gain: 1.0, reverb: 0.2 });
+    this.audio.play('shriek', { gain: 0.85, reverb: 0.15 });
+    this.audio.play('hush_wet', { gain: 0.8 });
+    this.redFlash = 1;
+    this.whiteFlash = 0.85;
+    this.distort = 0.2;
+    pl.shake = 1.6;
+    h.m.pose.jaw = 1;
+    this.ui.clearHint();
+    this.ui.hudDim(true); // nothing between you and his face until the struggle prompt
+  }
+
+  updateScare(dt) {
+    const S = this.scare;
+    if (!S) return;
+    const pl = this.player, h = this.hush;
+    S.t += dt;
+    const t = S.t, calm = this.settings.reduceFlash;
+    // field of view: snap in on his face, then ease back out
+    const punch = t < 0.09 ? t / 0.09 : Math.max(0, 1 - (t - 0.09) / 0.8);
+    this.camera.fov = this.settings.fov - (calm ? 9 : 22) * punch;
+    this.camera.updateProjectionMatrix();
+    h.m.pose.thrash = t < 0.9 ? 1 - t / 0.9 : 0;
+    h.m.pose.jaw = 1;
+    // the lunge: his face right on you, then he settles back to arm's length for the struggle
+    if (t > 0.55 && !S.hudBack) { S.hudBack = true; this.ui.hudDim(false); }
+    if (S.lunge) {
+      const k = Math.min(1, Math.max(0, (t - 0.22) / 0.45)), e = k * k * (3 - 2 * k);
+      const d = S.near + (GRAB_DIST - S.near) * e;
+      h.x = pl.pos.x + S.dx * d; h.z = pl.pos.z + S.dz * d;
+      h._sync();
+    }
+    if (t > 1.1) {
+      this.camera.fov = this.settings.fov;
+      this.camera.updateProjectionMatrix();
+      h.m.pose.thrash = 0;
+      this.scare = null;
+    }
+  }
+
   // Keep the camera on his face (not his body) while he holds you.
   faceHush() {
     const h = this.hush, pl = this.player;
@@ -828,7 +876,8 @@ export class Game {
     h.m.head.getWorldPosition(p);
     const dx = pl.eye.x - p.x, dz = pl.eye.z - p.z, d = Math.hypot(dx, dz) || 1;
     // aim at the muzzle and open jaw: a little in front of and below the skull centre
-    pl.forcedLook = { x: p.x + (dx / d) * 0.22, y: p.y - 0.16, z: p.z + (dz / d) * 0.22, speed: 14 };
+    const snap = this.scare && this.scare.t < 0.15; // the scare's first instant: snap to his face
+    pl.forcedLook = { x: p.x + (dx / d) * 0.22, y: p.y - 0.16, z: p.z + (dz / d) * 0.22, speed: snap ? 60 : 14 };
   }
 
   updateStruggle(dt) {
@@ -840,7 +889,7 @@ export class Game {
       if (this.input.actHit(s.next === 'A' ? 'left' : 'right')) {
         s.p += STRUGGLE_TAP;
         s.next = s.next === 'A' ? 'D' : 'A';
-        this.player.shake = 0.5;
+        this.player.shake = Math.max(this.player.shake, 0.95); // each tap is a violent yank
         this.audio.play('hush_wet', { gain: 0.25, rate: 1.4 });
       }
       s.p = Math.max(0, s.p - dt * STRUGGLE_DRAIN);
@@ -1037,6 +1086,14 @@ export class Game {
         if (st === 'cutscene') this.ui.setPrompt(null);
       } else if (st === 'menu') {
         this.updateMenuCamera(dt);
+        // the menu scene breathes: every few seconds a slow, faint red pulse from his chest
+        // outlines him in his chair, so the menu is never just black
+        this.menuBreathT = (this.menuBreathT ?? 1.2) - dt;
+        if (this.menuBreathT <= 0) {
+          this.menuBreathT = 3.6 + Math.random() * 2.2;
+          const c = this.house.hushChair;
+          this.sound({ x: c.x, z: c.z + 0.1, y: 1.3, radius: 3.4, strength: 0.45, source: 'world', color: PULSE.HUSH, speed: 2.2, linger: 1.4, euclid: true });
+        }
       }
       if (st === 'cutscene' && this.cutEvents) {
         this.cutT += dt;
@@ -1159,6 +1216,7 @@ export class Game {
 
   updateFX(dt) {
     const fx = this.pipeline.fx;
+    this.updateScare(dt);
     this.fadeV += (this.fadeTarget - this.fadeV) * Math.min(1, dt * 1.6);
     fx.uFade.value = this.fadeV;
     this.flash *= Math.exp(-dt * 7);
@@ -1176,7 +1234,12 @@ export class Game {
     const oxyT = pl.breathHeld && (pl.mode === 'walk' || pl.mode === 'hide') ? Math.max(0, 1 - pl.breath / 0.45) : 0;
     this.oxy = (this.oxy || 0) + (oxyT - (this.oxy || 0)) * Math.min(1, dt * (oxyT > (this.oxy || 0) ? 3 : 1.5));
     fx.uTunnel.value = this.oxy;
-    if (this.player.mode === 'grabbed' || this.state === 'dead') this.player.shake = Math.max(this.player.shake, 0.4);
+    // held by him: the camera never stops shaking (stronger than before)
+    if (this.player.mode === 'grabbed' || this.state === 'dead') this.player.shake = Math.max(this.player.shake, 0.6);
+    this.whiteFlash = (this.whiteFlash || 0) * Math.exp(-dt * 14);
+    fx.uWhite.value = this.whiteFlash * (calm < 1 ? 0.2 : 1);
+    this.distort = (this.distort || 0) * Math.exp(-dt * 4);
+    fx.uDistort.value = this.distort * (calm < 1 ? 0.4 : 1);
     const e = this.player.eye;
     const nearOn = this.state === 'menu' ? 0.0 : NEAR_GLOW;
     this.shared.uPlayer.value.set(e.x, e.y - 0.3, e.z, nearOn);

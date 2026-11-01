@@ -142,7 +142,7 @@ export class UI {
 <section id="doc" class="screen">
   <div class="doc-title label" id="doc-title"></div>
   <div class="paper-wrap" id="doc-paper"></div>
-  <div class="controls"><span><kbd>E</kbd>Put down</span><span id="doc-tr"><kbd>T</kbd>Transcript</span><span class="more">Scroll for more</span></div>
+  <div class="controls"><span><kbd data-bind="interact">E</kbd>Put down</span><span id="doc-tr"><kbd>T</kbd>Transcript</span><span class="more">Scroll for more</span></div>
 </section>
 
 <section id="death" class="screen grain cursor-ring">

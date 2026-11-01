@@ -370,7 +370,10 @@ export function animateHush(m, dt, time, phase) {
   m.neck.rotation.x = spring(A, 'nx', neck, dt, 55, 7);
   m.head.rotation.z = 0.16 + p.listen * 0.42 + sit * 0.3 * (1 - stir * 0.6) + Math.sin(time * 0.7) * 0.03
     + A.twZ * tw + stag * Math.sin(time * 7) * 0.15;
-  m.head.rotation.y = p.look + A.twY * tw + stag * Math.sin(time * 6.3) * 0.35;
+  // jump scare: the head thrashes side to side as he roars
+  const thr = p.thrash || 0;
+  m.head.rotation.y = p.look + A.twY * tw + stag * Math.sin(time * 6.3) * 0.35 + thr * Math.sin(time * 31) * 0.22;
+  m.head.rotation.z += thr * Math.sin(time * 37 + 1) * 0.18;
   m.head.rotation.x = p.listen * 0.12 + A.twX * tw - pulls;
   m.earR.rotation.z = Math.sin(time * 1.7 + phase) * 0.25 * (1 + run) - 0.2 + p.listen * 0.25 + Math.sin(phase * 2) * 0.15 * walkAmt;
   // jaw: hangs a little open while he runs, opens wide on the grab

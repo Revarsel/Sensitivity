@@ -1,4 +1,4 @@
-// Rebindable actions. Codes are KeyboardEvent.code values.
+// Rebindable actions. Codes are KeyboardEvent.code values, or 'Mouse0/1/2' for mouse buttons.
 // `group` decides which actions may not share a key (explore vs holdout).
 export const ACTIONS = [
   { id: 'forward', name: 'Move forward', group: 'explore', def: 'KeyW' },
@@ -8,7 +8,8 @@ export const ACTIONS = [
   { id: 'run', name: 'Run', group: 'explore', def: 'ShiftLeft' },
   { id: 'creep', name: 'Creep', group: 'explore', def: 'KeyC' },
   { id: 'knock', name: 'Knock', group: 'explore', def: 'KeyQ' },
-  { id: 'interact', name: 'Interact', group: 'explore', def: 'KeyE' },
+  // left click by default; it also throws a held item when you're not looking at anything usable
+  { id: 'interact', name: 'Interact', group: 'explore', def: 'Mouse0' },
   { id: 'breath', name: 'Hold breath / skip', group: 'explore', def: 'Space' },
   { id: 'evidence', name: 'Evidence', group: 'explore', def: 'Tab' },
   { id: 'transcript', name: 'Document transcript', group: 'explore', def: 'KeyT' },
@@ -30,6 +31,9 @@ export const ALIASES = {
 
 export function keyLabel(code) {
   if (!code) return '—';
+  if (code === 'Mouse0') return 'Click';
+  if (code === 'Mouse1') return 'Middle click';
+  if (code === 'Mouse2') return 'Right click';
   if (code.startsWith('Key')) return code.slice(3);
   if (code.startsWith('Digit')) return code.slice(5);
   if (code.startsWith('Numpad')) return 'Num ' + code.slice(6);
