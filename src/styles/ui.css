@@ -667,6 +667,10 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 #clock .time { font-family: var(--serif); font-size: 48px; color: var(--bone); line-height: 1; text-shadow: 0 0 18px #000; }
 #clock .time small { font-family: var(--mono); font-size: 12px; letter-spacing: 0.2em; margin-left: 8px; color: var(--bone-dim); }
 #clock .label { display: block; margin-top: 8px; }
+#clock .hstat { margin-top: 14px; }
+#clock .hstat .label { margin-top: 4px; color: var(--bone-dim); }
+#clock .hstat .label.low { color: var(--blood); }
+#clock .hstat .label.wait { opacity: 0.55; }
 
 #card {
   position: fixed;

@@ -139,6 +139,8 @@ void main() {
     float n = h12(vUv * uRes + fract(uTime * 37.0) * 400.0);
     ph = ph * scan * bar + (n - 0.5) * (0.09 + uStatic * 0.5);
     ph = mix(ph, vec3(n) * 0.6, clamp(uStatic - 0.6, 0.0, 1.0));
+    // dead battery (uStatic 2): no picture at all, only dim snow over black
+    ph = mix(ph, vec3(n * n) * 0.5 * scan, clamp((uStatic - 1.6) * 2.5, 0.0, 1.0));
     col = ph * smoothstep(1.0, 0.35, length(cc * vec2(aspect * 0.7, 1.0)));
   } else {
     col *= mix(1.0, vig, uVignette);

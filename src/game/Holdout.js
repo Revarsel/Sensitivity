@@ -9,10 +9,10 @@ const NODES = {
   HALL_W: { x: 2.4, z: 6.0 },
   HALL_M: { x: 8.5, z: 6.0 },
   HALL_E: { x: 13.8, z: 6.0 },
-  DOOR: { x: 12.0, z: 5.75, face: Math.PI },
+  DOOR: { x: 11.7, z: 6.3, face: Math.PI },   // 1.3 m back: his arm, not his head, goes through the gap
   BACKDOOR: { x: 16.1, z: 12.25 },
   YARD: { x: 18.3, z: 8.0 },
-  WINDOW: { x: 17.72, z: 2.5, face: -Math.PI / 2 },
+  WINDOW: { x: 18.3, z: 2.4, face: -Math.PI / 2 }, // 1.3 m out from the glass (his reaching arm lines up with the opening)
 };
 const EDGES = [
   ['LIVING', 'FOYER'], ['LIVING', 'HALL_W'], ['FOYER', 'HALL_M'], ['FOYER', 'KITCHEN'], ['KITCHEN', 'HALL_E'],
@@ -38,12 +38,16 @@ const HOUR_SEC = 80;
 // fight: door push speed (gap/s) and pushes needed. react: seconds to get the shutters shut.
 // rise: Thimble's agitation per second.
 const PARAMS = [
-  { interval: 6.5, aggr: 0.45, delay: 6.2, push: 0.26, need: 5, react: 2.5, rise: 0.0105 },
-  { interval: 5.0, aggr: 0.6, delay: 5.0, push: 0.29, need: 6, react: 2.1, rise: 0.0135 },
-  { interval: 4.0, aggr: 0.76, delay: 4.0, push: 0.32, need: 7, react: 1.75, rise: 0.017 },
+  { interval: 6.5, aggr: 0.45, delay: 6.2, push: 0.23, need: 7, react: 2.5, rise: 0.0105 },
+  { interval: 5.0, aggr: 0.6, delay: 5.0, push: 0.265, need: 8, react: 2.1, rise: 0.0135 },
+  { interval: 4.0, aggr: 0.76, delay: 4.0, push: 0.30, need: 9, react: 1.75, rise: 0.017 },
 ];
 const FIGHT_KEYS = ['forward', 'left', 'back', 'right']; // W A S D by default (rebindable)
 const PUSH_BACK = 0.07, WRONG_KEY = 0.05, WINDOW_HOLD = 2.4;
+const SONG_COOL = 10;                 // shared wait after the lure lullaby or the music box
+const LURE_COST = 15, MUSIC_COST = 6; // monitor battery (%) per lure lullaby / per wind of the music box
+const WIN_GLASS = { x: 17.0, y: 1.45, z: 2.5 }; // June's window (east wall)
+const BANG_REST = 0.28, BANG_HIT = 0.1; // arm reach hitting the door or the shutters: measured so the claws stop at the surface
 const FIRST_WINDOW_REACT = 4; // seconds to get the shutters shut on his first window visit each night
 
 export class Holdout {
@@ -60,8 +64,13 @@ export class Holdout {
     this.seat = seat;
     this.doorYaw = Math.atan2(-(12.0 - seat.x), -(5.0 - seat.z));
     this.windowYaw = Math.atan2(-(16.9 - seat.x), -(2.5 - seat.z));
-    this.dollYaw = Math.atan2(-(16.2 - seat.x), -(0.85 - seat.z));
+    const rk = game.house.rocker.position;
+    this.dollYaw = Math.atan2(-(rk.x - seat.x), -(rk.z - seat.z)); // behind you, just out of sight
+    this.shadowYaw = Math.atan2(-(15.6 - seat.x), -(4.9 - seat.z)); // his shadow, on the wall behind the monitor
     this.thimble = new Thimble(game, game.house.rocker);
+    this.echoes = [];
+    // a sound of yours that reaches the window lights the glass, and whatever is outside it
+    game.on('sound', (o) => this.onSound(o));
   }
 
   begin() {
@@ -72,8 +81,12 @@ export class Holdout {
     this.battery = 100;
     this.monitorUp = false;
     this.channel = 0;
-    this.lureCool = 0;
+    this.songCool = 0;
     this.lure = null;
+    this.echoes = [];
+    this.shutterLatch = false;
+    this.shutterJolt = 0;
+    this.flatNotified = false;
     this.static = 0;
     this.holding = null;
     this.fight = null;
@@ -93,8 +106,9 @@ export class Holdout {
     pl.fixedEyeY = this.seat.y;
     const center = this.centerYaw();
     pl.yaw = center;
-    // door on the right (-), window then Thimble's rocker on the left (+)
-    pl.lookLimits = { yawCenter: center, yawMin: -1.42, yawMax: 2.15, pitchMin: -1.1, pitchMax: 0.7 };
+    // door on the right (-), window on the left (+). Thimble's rocker is behind you, past the window
+    // side, just beyond how far you can turn; you watch his shadow on the wall instead.
+    pl.lookLimits = { yawCenter: center, yawMin: -1.42, yawMax: 1.45, pitchMin: -1.1, pitchMax: 0.7 };
     pl.forcedLook = null;
     this.thimble.reset();
     this.thimble.begin(this.seat.x, this.seat.z);
@@ -158,6 +172,8 @@ export class Holdout {
     if (g.state !== 'holdout') return;
 
     this.time += dt;
+    if (this.songCool > 0) this.songCool -= dt;
+    this.updateEchoes(dt);
     const hour = Math.floor(this.time / HOUR_SEC);
     if (hour !== this.lastHour) {
       this.lastHour = hour;
@@ -168,6 +184,7 @@ export class Holdout {
     // dawn waits for a death already under way
     if (hour >= 3 && !['breach', 'caughtWait', 'thimble'].includes(this.mode)) { this.beginDawn(); return; }
     g.ui.clock(true, 3 + hour, mins);
+    g.ui.holdoutStatus(this.battery, this.songCool);
 
     // ---- Thimble: restless unless sung to; at full agitation he comes for you
     if (this.mode === 'thimble') { this.updateThimbleKill(dt); return; }
@@ -191,15 +208,16 @@ export class Holdout {
       const dh = Math.hypot(g.hush.x - cam.pos[0], g.hush.z - cam.pos[2]);
       const near = Math.max(0, 1 - dh / 4.2);
       this.static = Math.max(this.static - dt * 2.2, near * 0.75 + (this.battery < 10 ? 0.25 : 0));
-      if (this.battery <= 0) this.static = 1.4;
+      if (this.battery <= 0) this.static = 2.0; // dead: no picture at all, only static
       g.pipeline.fx.uStatic.value = this.static;
       if (this.monStatic) this.monStatic.fade(0.06 + this.static * 0.25, 0.1);
       const hh = 3 + hour;
       g.ui.monitorState({ ch: this.channel, name: cam.name, time: `0${hh}:${String(mins).padStart(2, '0')}`, battery: this.battery, lure: this.lure && this.lure.alive, dead: this.battery <= 0 });
     }
 
-    // ---- music box for Thimble (monitor down)
+    // ---- music box for Thimble (monitor down); a knock, to light the window
     if (!this.monitorUp && input.actHit('lullaby')) this.singToThimble();
+    if (!this.monitorUp && input.actHit('knock')) g.knock();
 
     // ---- holding the shutters (monitor must be down)
     const dYaw = (a) => Math.abs(Math.atan2(Math.sin(pl.yaw - a), Math.cos(pl.yaw - a)));
@@ -210,13 +228,15 @@ export class Holdout {
       this.holding = want;
     }
     const sv = g.chapter.shutterV;
-    const tgt = this.holding === 'window' ? 1 : 0;
+    // (latched shut while he knocks on them after you held them; each knock jolts them)
+    this.shutterJolt = Math.max(0, this.shutterJolt - dt * 4);
+    const tgt = this.holding === 'window' || this.shutterLatch ? 1 - this.shutterJolt * 0.12 : 0;
     if (Math.abs(sv - tgt) > 0.001) g.chapter.setShutters(sv + (tgt - sv) * Math.min(1, dt * (tgt ? 9 : 3)));
     // prompt
     if (!this.monitorUp) {
       if (this.holding === 'window') g.ui.setPrompt('Mouse', 'Holding the shutters');
-      else if (dYaw(this.windowYaw) < 0.4) g.ui.setPrompt('Hold mouse', 'Hold the shutters closed');
-      else if (dYaw(this.dollYaw) < 0.45) g.ui.setPrompt(input.label('lullaby'), this.thimble.singing ? 'The music box is playing' : 'Wind the music box', 'He will hear it');
+      else if (dYaw(this.windowYaw) < 0.4) g.ui.setPrompt('Hold mouse', 'Hold the shutters closed', `<kbd>${input.label('knock')}</kbd>Knock to see out`);
+      else if (dYaw(this.shadowYaw) < 0.42) g.ui.setPrompt(input.label('lullaby'), this.thimble.singing ? 'The music box is playing' : this.songCool > 0 ? 'Wait for the music box' : 'Wind Thimble’s music box', 'He will hear it');
       // (not while the opening hint already says it)
       else if (this.time > 11.5) g.ui.setPrompt(input.label('monitor'), 'Raise the baby monitor');
       else g.ui.setPrompt(null);
@@ -238,7 +258,23 @@ export class Holdout {
       g.sound({ x: 13.4, z: 4.85, y: 0.3, radius: 6.5, strength: 0.42, color: PULSE.WORLD, source: 'world', speed: 4, linger: 1.8 });
     }
 
-    if (this.lureCool > 0) this.lureCool -= dt;
+  }
+
+  // ---- the window lights up when your sound reaches it (he is never lit by his own noise out there)
+  onSound(o) {
+    if (!this.active || this.dawn || (o.source !== 'player' && o.source !== 'object') || o.visual === false) return;
+    const d = Math.hypot(o.x - WIN_GLASS.x, o.z - WIN_GLASS.z), r = o.radius || 0;
+    if (d >= r) return;
+    this.echoes.push({ t: d / (o.speed ?? 11), strength: 0.6 + 0.4 * (1 - d / r) });
+  }
+  updateEchoes(dt) {
+    for (let i = this.echoes.length - 1; i >= 0; i--) {
+      const e = this.echoes[i];
+      e.t -= dt;
+      if (e.t > 0) continue;
+      this.echoes.splice(i, 1);
+      this.g.sound({ x: 17.7, z: 2.5, y: 1.5, radius: 2.1, strength: e.strength, color: PULSE.PLAYER, source: 'world', euclid: true, speed: 8 });
+    }
   }
 
   toggleMonitor() {
@@ -263,9 +299,9 @@ export class Holdout {
 
   playLullaby() {
     const g = this.g;
-    if (this.battery < 15 || this.lureCool > 0) { g.audio.play('blip', { bus: 'ui', rate: 0.6, gain: 0.6 }); return; }
-    this.battery -= 15;
-    this.lureCool = 11;
+    if (this.battery < LURE_COST || this.songCool > 0) { g.audio.play('blip', { bus: 'ui', rate: 0.6, gain: 0.6 }); return; }
+    this.battery -= LURE_COST;
+    this.songCool = SONG_COOL;
     const cam = this.cams[this.channel];
     if (this.lure) this.lure.stop(0.1);
     this.lure = g.audio.musicBox({ pos: { x: cam.room.x, y: 1.0, z: cam.room.z }, bus: 'sfx', gain: 0.55, loops: 1, wobble: 2.5, radio: true, tempo: 70 });
@@ -294,6 +330,8 @@ export class Holdout {
   brain(dt) {
     const g = this.g, h = g.hush, P = h.m.pose;
     const p = this.params;
+    P.reachArm = null; // set below while he works at the door or the window
+    this.bangPulse = Math.max(0, (this.bangPulse || 0) - dt * 3);
     switch (this.mode) {
       case 'idle':
         P.listen = Math.max(0, P.listen - dt);
@@ -322,7 +360,7 @@ export class Holdout {
           else if (this.node === 'YARD' && this.goal === 'WINDOW') {
             // something brushes the glass: the only warning before the window (clearer the first time)
             const first = !this.windowSeen;
-            g.audio.play('knock', { pos: { x: 17.1, y: 1.4, z: 2.5 }, gain: first ? 0.5 : 0.18, rate: 2.4 });
+            g.audio.play('knock', { pos: { x: 17.1, y: 1.4, z: 2.5 }, gain: first ? 0.5 : 0.16, rate: 2.4 });
             if (first) g.subtitle('June?', 'Ellis… I’m at the window.', 2.4, true);
             this.mode = 'idle'; this.timer = 0.6;
           }
@@ -350,18 +388,25 @@ export class Holdout {
         if (this.timer <= 0) this.startDoorFight();
         break;
       }
-      case 'doorFight':
-        // he leans on the door (the push itself runs in updateDoorFight)
-        P.reach = 1; P.hunch = 1;
+      case 'doorFight': {
+        // he leans on the door; one arm goes through the gap only as far as it is open, the other
+        // presses on the wall (the push itself runs in updateDoorFight)
+        const th = g.house.doorJune.angle;
+        P.reach = 0.6; P.hunch = 1;
+        // (measured: below 0.4 rad the paw stays in the open wedge, past it the door's edge is clear)
+        P.reachArm = [th < 0.4 ? 0.28 + 0.27 * (th / 0.4) : 0.55 + 0.45 * Math.min(1, (th - 0.4) / 0.12), 0.3];
         return 0;
+      }
       case 'banging': {
-        // repelled: the door slammed on him. He hits it a few more times, then goes.
-        P.reach = 0.6;
+        // repelled: the door slammed on him. He hits it a few more times (paws on the door, not through it), then goes.
+        P.reach = 0.3; P.hunch = 0.6;
+        P.reachArm = [BANG_REST + BANG_HIT * this.bangPulse, BANG_REST + BANG_HIT * this.bangPulse];
         this.timer -= dt;
         if (this.timer <= 0) {
           if (this.bangs > 0) {
             this.bangs--;
             this.timer = 0.55 + Math.random() * 0.35;
+            this.bangPulse = 1;
             g.audio.play('door_slam', { pos: { x: 12, y: 1.2, z: 5.0 }, gain: 0.85, rate: 0.65 + Math.random() * 0.15 });
             g.audio.play('boom', { pos: { x: 12, y: 1.2, z: 5.2 }, gain: 0.35 });
             g.sound({ x: 12.0, z: 4.6, y: 1.2, radius: 3.2, strength: 0.9, color: PULSE.HUSH, source: 'hush', euclid: true, speed: 9 });
@@ -378,10 +423,17 @@ export class Holdout {
         this.cueT -= dt;
         const pushing = this.windowPhase === 'push';
         if (this.cueT <= 0) {
-          this.cueT = pushing ? 0.3 + Math.random() * 0.15 : 0.7;
-          g.audio.play(pushing ? 'creak_floor' : 'knock', { pos: { x: 17.1, y: 1.4, z: 2.5 }, gain: pushing ? 0.6 : 0.4, rate: pushing ? 1.6 : 1.9 });
-          g.sound({ x: 17.35, z: 2.5, y: 1.45, radius: 2.1, strength: 0.8, color: PULSE.HUSH, source: 'hush', euclid: true, speed: 8 });
-          if (pushing) g.player.shake = Math.max(g.player.shake, 0.15);
+          if (pushing) {
+            // the shutters are shut: he tries them (you feel it; the light is on your side)
+            this.cueT = 0.3 + Math.random() * 0.15;
+            g.audio.play('creak_floor', { pos: { x: 17.1, y: 1.4, z: 2.5 }, gain: 0.6, rate: 1.6 });
+            g.sound({ x: 16.9, z: 2.5, y: 1.45, radius: 1.6, strength: 0.7, color: PULSE.HUSH, source: 'hush', euclid: true, speed: 8 });
+            g.player.shake = Math.max(g.player.shake, 0.15);
+          } else {
+            // a fingernail on the glass, barely there (no light: he stays dark)
+            this.cueT = 0.8 + Math.random() * 0.6;
+            g.audio.play('knock', { pos: { x: 17.1, y: 1.6, z: 2.5 }, gain: 0.12, rate: 2.9 });
+          }
         }
         if (!pushing) {
           if (this.timer <= 0) {
@@ -392,11 +444,31 @@ export class Holdout {
         else if (this.timer <= 0) this.repelled(false);
         break;
       }
+      case 'knocking': {
+        // the shutters held: he knocks on them, trying to get in, then goes
+        P.reach = 0.3; P.hunch = 0.6;
+        P.reachArm = [BANG_REST + BANG_HIT * this.bangPulse, BANG_REST + BANG_HIT * this.bangPulse];
+        this.timer -= dt;
+        if (this.timer <= 0) {
+          if (this.knocks > 0) {
+            this.knocks--;
+            this.timer = 0.55 + Math.random() * 0.45;
+            this.bangPulse = 1;
+            this.shutterJolt = 1;
+            g.audio.play('knock', { pos: { x: 17.1, y: 1.5, z: 2.5 }, gain: 1, rate: 0.7 + Math.random() * 0.12 });
+            g.audio.play('boom', { pos: { x: 17.1, y: 1.5, z: 2.5 }, gain: 0.18 });
+            g.sound({ x: 16.9, z: 2.5, y: 1.5, radius: 2.4, strength: 0.85, color: PULSE.HUSH, source: 'hush', euclid: true, speed: 9 });
+            g.player.shake = Math.max(g.player.shake, 0.3);
+          } else { this.shutterLatch = false; this.retreat(false); }
+        }
+        break;
+      }
       case 'breach': {
         // coming in for you
         const pl = g.player;
         if (this.breachKind === 'door' && (!h.path || h.pathI >= h.path.length)) { h.path = [[pl.pos.x, pl.pos.z]]; h.pathI = 0; }
         if (this.breachKind === 'door') h.followPath(dt, 2.4);
+        if (this.breachKind === 'window') { P.reach = 0.6; P.hunch = 0.2; P.reachArm = [0.3, 0.9]; } // one arm in through the broken pane
         const d = Math.hypot(pl.pos.x - h.x, pl.pos.z - h.z);
         if (d < 1.15 || (this.breachKind === 'window' && this.timer < 0)) this.caught();
         this.timer -= dt;
@@ -435,11 +507,12 @@ export class Holdout {
     // short on purpose, except the first visit of the night (you're still learning the room)
     this.timer = this.windowSeen ? this.params.react : Math.max(FIRST_WINDOW_REACT, this.params.react);
     this.windowSeen = true;
-    this.cueT = 0;
+    this.cueT = 0.5;
     h.voice.cut();
     h.heading = -Math.PI / 2;
-    const lines = ['Ellis. It’s cold out here.', 'Let me in, Ellis.', 'I can hear you breathing.', 'Ellis, open the window.'];
-    g.subtitle('June?', lines[Math.floor(Math.random() * lines.length)], 2.2, true);
+    // he is not lit out there: the only cue is something soft at the glass. Knock (or any sound of
+    // yours) to light the window and see him.
+    g.audio.play('hush_sniff', { pos: { x: 17.3, y: 1.7, z: 2.5 }, gain: 0.3, rate: 0.85 });
   }
 
   // ------------------------------------------------------------ the door fight
@@ -527,15 +600,17 @@ export class Holdout {
   // ------------------------------------------------------------ Thimble
   singToThimble() {
     const g = this.g;
+    if (this.songCool > 0 || this.battery < MUSIC_COST || this.thimble.singing) { g.audio.play('blip', { bus: 'ui', rate: 0.6, gain: 0.6 }); return; }
     if (!this.thimble.sing()) return;
+    this.battery -= MUSIC_COST;
+    this.songCool = SONG_COOL;
     const p = this.thimble.worldPos;
     g.sound({ x: p.x, z: p.z, y: 1, radius: 3.5, strength: 0.5, color: PULSE.WORLD, source: 'object' });
     // it's his song too: it brings him to June's room
     this.drawn = 16;
     if (['idle', 'linger'].includes(this.mode)) { this.mode = 'idle'; this.timer = 0.4; this.lureLinger = false; }
     if (!['atDoor', 'atWindow', 'doorFight', 'banging', 'breach'].includes(this.mode)) {
-      const dDoor = TO_DOOR[this.node] ?? 9, dWin = TO_WINDOW[this.node] ?? 9;
-      this.goal = dDoor <= dWin ? 'DOOR' : 'WINDOW';
+      this.goal = Math.random() < 0.5 ? 'DOOR' : 'WINDOW'; // either way into June's room
     }
     if (!this.sungOnce) { this.sungOnce = true; this.g.subtitle('Ellis', 'Shh. Shh. Not too loud…', 2.4); }
   }
@@ -551,6 +626,8 @@ export class Holdout {
     const p = this.thimble.worldPos;
     g.player.forcedLook = { x: p.x, y: p.y, z: p.z, speed: 9 };
     g.audio.play('riser', { pos: p, gain: 0.8 });
+    // he is behind you: light him as you turn
+    g.sound({ x: p.x, z: p.z + 0.4, y: 1.0, radius: 2.6, strength: 1, color: PULSE.HUSH, source: 'world', euclid: true, speed: 8, hold: 2, tail: 1 });
   }
 
   updateThimbleKill(dt) {
@@ -576,7 +653,11 @@ export class Holdout {
     g.sound({ x: 17.2, z: 2.5, y: 1.4, radius: 3.0, strength: 1, color: PULSE.HUSH, source: 'hush', euclid: true });
     g.player.shake = 0.7;
     g.stats.repelled++;
-    this.retreat(atDoor);
+    // then he knocks on them a few times (they stay latched; you can let go)
+    this.mode = 'knocking';
+    this.knocks = 3 + Math.min(2, this.hour);
+    this.timer = 0.8;
+    this.shutterLatch = true;
   }
 
   retreat(atDoor) {
@@ -605,8 +686,7 @@ export class Holdout {
     } else {
       g.audio.play('bottle_shatter', { pos: { x: 17, y: 1.4, z: 2.5 }, gain: 1 });
       g.sound({ x: 16.6, z: 2.5, y: 1.4, radius: 7, strength: 1.1, color: PULSE.HUSH, source: 'hush', euclid: true });
-      // he reaches through: teleport him to the sill
-      h.teleport(17.2, 2.5, -Math.PI / 2);
+      // he stays outside; his arms come in through the broken window (the grab that follows brings him to you)
       this.timer = 0.6;
     }
     g.audio.play('hush_growl', { pos: h.headPos, gain: 1 });
@@ -625,6 +705,7 @@ export class Holdout {
     this.dawn = true;
     this.dawnT = 0;
     this.holding = null;
+    this.shutterLatch = false; this.echoes = [];
     if (this.fight) { this.fight = null; g.ui.doorFight(false); g.player.forcedLook = null; }
     const dj0 = g.house.doorJune;
     dj0.angle = 0; dj0.target = 0; dj0._apply();

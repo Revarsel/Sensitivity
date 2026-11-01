@@ -40,7 +40,7 @@ export const DOCS = {
     place: 'June’s room',
     body: `<p class="date">October 1996</p>
 <p>The doll came in the same box as the bear. Thimble. June won't sleep until he's had his song. Every night: wind the music box, let it play right to the end, kiss the bear, kiss the doll. If I'm tired and stop it early, she cries until I start it again.</p>
-<p>Tuesday I forgot. Ellis had a fever and I was up with him all night. In the morning the rocking chair was turned to face her bed, and the shadow on the wall behind it went all the way up to the ceiling. The lamp was off.</p>
+<p>Tuesday I forgot. Ellis had a fever and I was up with him all night. In the morning the rocking chair was turned to face her bed, and his shadow went all the way up the far wall to the ceiling. The lamp was off. It was only the moon through her window.</p>
 <p>June said, "He doesn't like it quiet, Mama. When it's quiet he gets big." Then she said the bear always comes when the song plays.</p>
 <p>I didn't ask her what she meant. I wish I had.</p>`,
   },

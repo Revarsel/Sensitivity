@@ -300,7 +300,7 @@ export function animateHush(m, dt, time, phase) {
   const sit = p.sit, grab = p.grab, stag = p.stagger;
   const turn = Math.max(-1, Math.min(1, p.turn || 0));
   const sniff = p.sniff || 0, stir = p.stir || 0, sq = p.squeeze || 0;
-  const reach = Math.max(grab, p.reach);
+  const reachBoth = Math.max(grab, p.reach);
   // breathing: slow and deep asleep, heaving when hunting or holding you
   const breath = Math.sin(time * (sit > 0.5 ? 0.85 : 1.3 + run * 1.8 + grab * 2.2));
   // footfall impact: 1 right as a foot lands, gone by mid-stride
@@ -339,6 +339,8 @@ export function animateHush(m, dt, time, phase) {
   for (let i = 0; i < 2; i++) {
     const a = m.arms[i];
     const side = i === 0 ? -1 : 1;
+    // p.reachArm = [r0, r1] reaches with each arm separately (the holdout door: one arm through the gap)
+    const reach = p.reachArm ? Math.max(grab, p.reachArm[i]) : reachBoth;
     const swing = (i === 0 ? -s : s) * (0.4 + run * 0.35) * walkAmt;
     // stunned (stag): upper arms out and forward, forearms folded back so the paws clutch his head
     const sx = swing * (1 - stag) * (1 - sq * 0.6) - p.hunch * 0.3 - reach * 1.55 - sit * 0.2 - stag * 1.25 - sq * 0.45 + breath * 0.03 * (1 - walkAmt);

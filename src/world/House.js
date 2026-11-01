@@ -398,10 +398,12 @@ export class House {
     at(10.6, 2.4, E, () => P.toyChest(b, M));
     at(15.9, 4.68, S, () => P.dresser(b, M, 1.1));
     this.rocker = buildGroup((g) => P.rockingChair(g, M));
-    this.rocker.position.set(16.2, 0, 0.85);
-    this.rocker.rotation.y = -2.4;
+    // in front of the north window, facing out of it (the holdout turns him to face you; he is then
+    // behind the seat, out of sight, and the moonlight throws his shadow onto the far wall)
+    this.rocker.position.set(13.75, 0, 0.75);
+    this.rocker.rotation.y = Math.PI;
     this.root.add(this.rocker);
-    this.b.colliders.push({ minX: 15.8, maxX: 16.6, minZ: 0.4, maxZ: 1.3, maxY: 1.1 });
+    this.b.colliders.push({ minX: 13.35, maxX: 14.15, minZ: 0.3, maxZ: 1.2, maxY: 1.1 });
     b.at(15.4, 1.55, 0 + T / 2 + 0.004, 0, () => P.frame(b, M, 0.5, 0.65, M.poster));
     // height chart on the door casing (room side)
     this.decal(M.heightChart, 12.62, 1.15, 5 - T / 2 - 0.03, 0.13, 2.3, 'wallS');

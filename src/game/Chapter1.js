@@ -57,7 +57,7 @@ export class Chapter1 {
     doc('june_2', add(wallSheet(M.drawingListens, 0.34, 0.26), 16.093, 1.35, 7.5, -Math.PI / 2), 'Look at the drawing');
     // Thimble (the doll in June's rocking chair): his care card by the baby monitor, Diane's page by his chair
     doc('thimble_card', add(paper(0.12, 0.17, M.paper), 16.2, 0.893, 4.6, Math.PI - 0.3), 'Read the card');
-    doc('diane_4', add(notebook(), 15.55, 0.0, 1.45, 0.7), 'Read the journal');
+    doc('diane_4', add(notebook(), 14.55, 0.0, 1.05, 0.5), 'Read the journal');
     // notes taped to doors (hotspots in front of the door's paper)
     this.noteJune = I.add({ id: 'lore:note_june', obj: hotspot(12.0, 1.45, 5.09, 0.24, 0.3, 0.04), prompt: () => ['E', 'Read the note'], enabled: () => H.doorJune.isClosed, use: () => { g.openDoc('note_june'); this.onReadJuneNote(); } });
     I.add({ id: 'lore:note_basement', obj: hotspot(16.9, 1.45, 8.5, 0.04, 0.3, 0.24), prompt: () => ['E', 'Read the note'], use: () => g.openDoc('note_basement') });
@@ -612,8 +612,8 @@ export class Chapter1 {
     else if (this.nextRock <= 0) {
       this.nextRock = 8 + Math.random() * 10;
       this.rockT = 3.2;
-      g.audio.play('creak_floor', { pos: { x: 16.2, y: 0.5, z: 0.85 }, gain: 0.45, rate: 1.3 });
-      g.sound({ x: 16.0, z: 1.0, y: 0.4, radius: 2.3, strength: 0.6, color: PULSE.WORLD, source: 'world', speed: 6 });
+      g.audio.play('creak_floor', { pos: { x: H.rocker.position.x, y: 0.5, z: H.rocker.position.z }, gain: 0.45, rate: 1.3 });
+      g.sound({ x: H.rocker.position.x, z: H.rocker.position.z + 0.2, y: 0.4, radius: 2.3, strength: 0.6, color: PULSE.WORLD, source: 'world', speed: 6 });
     }
     if (this.rockT > 0) {
       this.rockT -= dt;

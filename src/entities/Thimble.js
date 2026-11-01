@@ -1,17 +1,22 @@
 import * as THREE from 'three';
 import { buildGroup } from '../world/Builder.js';
 import { revealMaterial, PAT } from '../render/RevealMaterial.js';
-import { PULSE } from '../render/Pulses.js';
 
-// Thimble: Cradle & Co.'s porcelain "rocking companion", sitting in June's rocking chair.
-// In the holdout he grows restless when nobody sings to him (agitation 0..1). You can watch it on
-// the wall: his shadow grows and stretches, and a slow heartbeat thud speeds up, each beat throwing
-// a faint red pulse that lights the wall. At 1 he comes for you. The music box calms him, but it is
-// Mr. Hush's song too, and it brings him to the door (handled by Holdout).
+// Thimble: Cradle & Co.'s porcelain "rocking companion", sitting in June's rocking chair in front of
+// her north window. In the holdout his chair is behind you, just past where you can turn, and he grows
+// restless when nobody sings to him (agitation 0..1). You watch it on the wall in front of you: the
+// moonlight from the window behind him throws his shadow onto the wall behind the baby monitor, and it
+// grows with him (up to the ceiling) while a heartbeat thud speeds up and makes the moonlight throb
+// red. At 1 he comes for you. The music box calms him, but it is Mr. Hush's song too, and it brings
+// him to June's door or window (handled by Holdout).
 
 const SONG_SECONDS = 6.5;   // how long one wind of the music box plays
 const CALM_RATE = 0.12;     // agitation removed per second while it plays
-const SHADOW_X = 16.25;     // centre of his shadow on the north wall
+// the moonlit patch on the south wall, behind the baby monitor on the dresser (room face z 4.92)
+const PATCH = { x: 15.55, y: 1.55, z: 4.914, w: 2.6, h: 2.2 };
+const SHADOW_X = 15.65, SHADOW_Y = 0.55; // bottom centre of his shadow (behind the monitor; the dresser hides the chair)
+const MOON = new THREE.Color(0.55, 0.62, 0.8), BEAT_RED = new THREE.Color(0.95, 0.12, 0.08);
+const MOON_GLOW = 0.3; // patch brightness (additive)
 
 export class Thimble {
   constructor(game, rocker) {
@@ -56,17 +61,16 @@ export class Thimble {
     this.rocker = rocker;
     this.restYaw = rocker.rotation.y; // facing the corner, as Diane left him
 
-    // ---- his shadow on the north wall behind his chair (right of the poster; clear of the shutters)
-    const tex = new THREE.CanvasTexture(shadowCanvas());
-    tex.colorSpace = THREE.SRGBColorSpace;
-    this.shadowMat = revealMaterial({ color: 0x040303, pattern: PAT.PLAIN, map: tex, cutout: true, emissiveColor: 0x4a0505, emissive: 0 });
-    const geo = new THREE.PlaneGeometry(1, 1);
-    geo.translate(0, 0.5, 0); // origin at the bottom edge
-    this.shadow = new THREE.Mesh(geo, this.shadowMat);
-    // plane faces +Z, into the room; the wall's inner face is at z = 0.08
-    this.shadow.position.set(SHADOW_X, 0.32, 0.087);
+    // ---- moonlight on the wall behind the monitor, with his shadow in it. Additive light (so it shows
+    // without any sound), darkened where his silhouette falls; the dresser in front occludes it.
+    this.moon = 0;
+    this.shadowMat = moonShadowMaterial(new THREE.CanvasTexture(patchCanvas()), new THREE.CanvasTexture(shadowCanvas()));
+    this.shadow = new THREE.Mesh(new THREE.PlaneGeometry(PATCH.w, PATCH.h), this.shadowMat);
+    this.shadow.rotation.y = Math.PI; // faces north, into the room
+    this.shadow.position.set(PATCH.x, PATCH.y, PATCH.z);
+    this.shadow.renderOrder = 5;
     game.scene.add(this.shadow);
-    this.applyVisuals(0, 0);
+    this.applyVisuals(0, 0, 0);
   }
 
   get worldPos() {
@@ -94,13 +98,14 @@ export class Thimble {
     this.doll.position.set(0, 0.47, -0.04);
     this.rocker.rotation.x = 0;
     this.rocker.rotation.y = this.restYaw;
-    this.applyVisuals(0, 0);
+    this.moon = 0;
+    this.applyVisuals(0, 0, 0);
   }
   // the kill: he swells and leans out of the chair at you (k 0..1)
   lunge(k) {
     this.doll.position.z = -0.04 + k * 0.35;
     this.doll.position.y = 0.47 + k * 0.1;
-    this.applyVisuals(1 + k * 0.9, 1);
+    this.applyVisuals(1 + k * 0.9, 1, 0);
   }
 
   // wind June's music box beside him. Returns false if it is already playing.
@@ -137,8 +142,7 @@ export class Thimble {
         const p = this.worldPos;
         g.audio.play('heart_lub', { pos: p, gain: 0.25 + 0.75 * this.a, rate: 0.48, ref: 1.6 });
         g.audio.play('heart_dub', { pos: p, gain: 0.18 + 0.5 * this.a, rate: 0.5, ref: 1.6, delay: 0.2 });
-        g.sound({ x: p.x - 0.1, z: p.z - 0.25, y: 1.0, radius: 2.0 + 2.4 * this.a, strength: 0.25 + 0.55 * this.a, color: PULSE.HUSH, source: 'world', euclid: true, speed: 7, linger: 0.6 });
-        this.pulse = 1;
+        this.pulse = 1; // the moonlight on the wall throbs red (applyVisuals)
       }
     }
     this.pulse = Math.max(0, (this.pulse || 0) - dt * 2.5);
@@ -152,23 +156,80 @@ export class Thimble {
       this.rockPhase = (this.rockPhase || 0) + dt * (2.2 + a * 4.5);
       this.rocker.rotation.x = Math.sin(this.rockPhase) * (0.03 + a * 0.12);
     }
-    this.applyVisuals(a, this.pulse);
+    this.moon += ((this.active ? 1 : 0) - this.moon) * Math.min(1, dt * (this.active ? 1.5 : 0.6));
+    this.applyVisuals(a, this.pulse, this.moon);
     return this.active && this.a >= 1;
   }
 
-  applyVisuals(a, pulse) {
+  applyVisuals(a, pulse, moon) {
     // the doll swells a little; the shadow grows and stretches a lot
     this.doll.scale.setScalar(1 + a * 0.55);
     const sway = Math.sin(this.rockPhase || 0) * (0.03 + a * 0.1);
-    this.shadow.scale.set(0.45 + a * 1.1, 0.8 + a * 1.7, 1); // at full size it reaches the ceiling
-    this.shadow.position.x = SHADOW_X + sway;
-    this.shadow.rotation.z = sway * 0.6;
-    this.shadow.visible = this.active || a > 0.02;
-    // in the dark, the eyes and the shadow's edge glow faintly red on each beat once he's restless
+    const sw = 0.5 + a * 1.1, sh = 0.85 + a * 1.75; // metres; at full size it reaches the ceiling
+    // patch uv (the plane faces north, so uv.x runs from +x to -x)
+    const u = this.shadowMat.uniforms;
+    u.uShadowRect.value.set(0.5 - (SHADOW_X + sway - PATCH.x) / PATCH.w, (SHADOW_Y - (PATCH.y - PATCH.h / 2)) / PATCH.h, sw / PATCH.w, sh / PATCH.h);
+    // heartbeat: the moonlight throbs, redder and brighter the more restless he is
+    const beat = pulse * Math.min(1, a * 1.3);
+    u.uColor.value.copy(MOON).lerp(BEAT_RED, beat * 0.75);
+    u.uIntensity.value = MOON_GLOW * moon * (1 + beat * 1.2);
+    this.shadow.visible = moon > 0.01;
+    // the eyes glow faintly red on each beat once he's restless (for the kill, when you turn round)
     const glow = Math.max(0, a - 0.35) * (0.4 + 0.6 * pulse);
     this.eyeMat.uniforms.uParams.value.z = glow * 0.9;
-    this.shadowMat.uniforms.uParams.value.z = glow * 0.18;
   }
+}
+
+// Additive moonlight patch (r channel of uPatch) with his silhouette (alpha of uShadow) cut out of it,
+// placed by uShadowRect (bottom-centre x, y and size, in patch uv). Writes only colour, like glowMaterial.
+function moonShadowMaterial(patch, shadow) {
+  return new THREE.RawShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    vertexShader: `precision highp float;
+in vec3 position; in vec2 uv;
+uniform mat4 modelViewMatrix; uniform mat4 projectionMatrix;
+out vec2 vUv;
+void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `precision highp float;
+uniform sampler2D uPatch; uniform sampler2D uShadow;
+uniform vec3 uColor; uniform float uIntensity; uniform vec4 uShadowRect;
+in vec2 vUv;
+layout(location = 0) out vec4 gColor;
+layout(location = 1) out vec4 gNormal;
+layout(location = 2) out vec4 gReveal;
+void main() {
+  float light = texture(uPatch, vUv).r;
+  vec2 s = (vUv - uShadowRect.xy) / uShadowRect.zw + vec2(0.5, 0.0);
+  float sh = (s.x > 0.0 && s.x < 1.0 && s.y > 0.0 && s.y < 1.0) ? texture(uShadow, s).a : 0.0;
+  gColor = vec4(uColor * uIntensity * light * (1.0 - 0.96 * sh), 0.0);
+  gNormal = vec4(0.0);
+  gReveal = vec4(0.0);
+}`,
+    uniforms: {
+      uPatch: { value: patch }, uShadow: { value: shadow },
+      uColor: { value: MOON.clone() }, uIntensity: { value: 0 },
+      uShadowRect: { value: new THREE.Vector4(0.5, 0, 0.3, 0.4) },
+    },
+    transparent: true, depthWrite: false,
+    blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+    blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneFactor,
+  });
+}
+
+// The north window's moonlight thrown across the room: a soft, skewed rectangle split by the mullions.
+function patchCanvas() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = '#000'; x.fillRect(0, 0, 256, 256);
+  x.filter = 'blur(14px)';
+  x.fillStyle = '#fff';
+  x.beginPath(); x.moveTo(40, 30); x.lineTo(222, 46); x.lineTo(230, 226); x.lineTo(30, 214); x.closePath(); x.fill();
+  x.filter = 'blur(6px)';
+  x.fillStyle = '#000';
+  x.fillRect(122, 20, 12, 220); // mullion
+  x.fillRect(20, 118, 220, 10); // transom
+  return c;
 }
 
 // Soft silhouette of the rocker's back with him in it: big head, long arms, long fingers.

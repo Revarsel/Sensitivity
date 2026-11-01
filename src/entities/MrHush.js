@@ -616,7 +616,9 @@ export class MrHush {
       const radius = hunting ? 6.5 : this.state === 'investigate' ? 5 : 4.2;
       const surf = this.g.house.surfaceAt(this.x, this.z);
       const mul = surf === 'carpet' || surf === 'rug' ? 0.85 : surf === 'tile' ? 1.15 : 1;
-      this.g.sound({ x: this.x, z: this.z, radius: radius * mul, source: 'hush', color: PULSE.HUSH, strength: hunting ? 1.0 : 0.8, speed: 9 });
+      // holdout: his steps outside June's window give no light (you have to light the window yourself)
+      const dark = this.state === 'holdout' && this.x > 17.05 && this.z < 9;
+      this.g.sound({ x: this.x, z: this.z, radius: radius * mul, source: 'hush', color: PULSE.HUSH, strength: hunting ? 1.0 : 0.8, speed: 9, visual: !dark });
       this.g.audio.play('hush_step', { pos: { x: this.x, y: 0.2, z: this.z }, gain: hunting ? 1.0 : 0.75, jitter: 0.1, ref: 2.2, rolloff: 1.0 });
       if (Math.random() < 0.15) this.g.audio.play('hush_wet', { pos: { x: this.x, y: 1.2, z: this.z }, gain: 0.35 });
     }

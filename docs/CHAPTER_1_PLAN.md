@@ -143,16 +143,16 @@ The player sits on the floor of June's room. They can look around but can't walk
 | Tool | What it does | Catch |
 |---|---|---|
 | **Baby monitor** (Space, keys 1–3) | Night-vision feeds of the **Hallway**, **Living room** and **Kitchen** | Drains battery while raised. You can't watch the door or window. |
-| **Talk-back lullaby** (L on the monitor) | Plays a lullaby through that room's monitor and lures him there | Large battery cost. Doesn't work if he's already at a threshold. |
-| **Bedroom door** (W A S D, prompted) | The door starts closed. After a warning he forces it open; push back by pressing the keys shown, in order (5, 6 and 7 keys at 3, 4 and 5 AM). Win and it slams shut while he bangs on it, then leaves. | Wrong keys let him in further. Harder each hour. |
-| **Window shutters** (look + hold mouse) | He appears at the window with almost no warning: about 2 seconds to get the shutters shut, then hold them while he tries them | You can't use the monitor while holding |
-| **June's music box** (L, monitor down) | Calms **Thimble**, the porcelain doll in the rocking chair | It is Mr. Hush's song: it brings him straight to June's room |
+| **Talk-back lullaby** (L on the monitor) | Plays a lullaby through that room's monitor and lures him there | 15% battery; shares a 10 s wait with the music box. Doesn't work if he's already at a threshold. |
+| **Bedroom door** (W A S D, prompted) | The door starts closed. After a warning he forces it open; push back by pressing the keys shown, in order (7, 8 and 9 keys at 3, 4 and 5 AM). Win and it slams shut while he bangs on it, then leaves. | Wrong keys let him in further. Harder each hour. |
+| **Window shutters** (look + hold mouse) | He comes to the window unlit, with only a faint sound: knock (Q) to light the glass and see him. About 2 seconds to get the shutters shut, then hold them while he tries them; then he knocks on them before leaving | You can't use the monitor while holding |
+| **June's music box** (L, monitor down) | Calms **Thimble**, the porcelain doll in the rocking chair | It is Mr. Hush's song: it brings him to June's door or window. 6% battery; shares the lullaby's wait |
 
-**Thimble.** Cradle & Co.'s porcelain rocking companion, sold with the Hushaby. At 3:00 his chair has turned to face you. He grows restless when nobody sings: his shadow on the wall behind the chair grows toward the ceiling, the chair rocks harder, and a slow heartbeat thud from the chair speeds up (each beat lights the wall red). If he gets too big, he comes for you.
+**Thimble.** Cradle & Co.'s porcelain rocking companion, sold with the Hushaby. His chair sits in front of June's north window, behind the holdout seat and just out of sight. At 3:00 it has turned to face you. He grows restless when nobody sings: the moonlight throws his shadow onto the wall behind the baby monitor, and it grows toward the ceiling, the chair rocks harder, and a slow heartbeat thud from the chair speeds up (each beat makes the moonlight throb red). If he gets too big, he comes for you.
 
 - Mr. Hush moves between rooms on a node graph and gets more aggressive each hour.
 - He reaches the **window** by leaving through the kitchen back door (visible on the kitchen feed), then is unseen in the yard.
-- **Cues:** humming direction, heavy breathing and scratching at the door, tapping and *June's voice* at the window.
+- **Cues:** humming direction, heavy breathing and scratching at the door; at the window only a faint tap and a sniff (June's voice on the first visit), and he is unlit until your sound reaches the glass.
 - If anything gets in (Mr. Hush, or Thimble), you die and the holdout restarts. There are no second chances in June's room.
 - **Dawn (6:00):** the clock chimes six, grey light fills the room, and for the first time the player sees June's room clearly. Halloway's last tape is hidden in the monitor's battery compartment.
 

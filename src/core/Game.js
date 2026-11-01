@@ -781,11 +781,14 @@ export class Game {
 
   // the holdout has no second chance: a short, unwinnable grab, then death
   holdoutCaught() {
-    const pl = this.player, h = this.hush;
-    pl.forcedLook = { x: h.x, y: 1.9, z: h.z, speed: 14 };
-    this.startScare(false);
-    h.m.pose.jaw = 1; h.m.pose.grab = 1;
+    const h = this.hush;
     if (this.holdout.monitorUp) this.holdout.toggleMonitor();
+    // he's in (through the door, or the broken window): right in your face, like any grab
+    this.placeForGrab();
+    h._sync();
+    this.faceHush();
+    this.startScare(true);
+    h.m.pose.jaw = 1; h.m.pose.grab = 1;
     this.startStruggle(false, () => {}, () => this.die(true));
   }
 

@@ -35,7 +35,7 @@ Use a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari 16+). Headpho
 
 All keys can be rebound in **Settings → Controls**, including interact (set it back to E if you prefer). Mouse buttons can be bound too.
 
-**Holdout (3:00 AM to 6:00 AM):** if anything gets in, you die. Space raises the baby monitor; 1, 2 and 3 switch rooms, and L plays a lullaby through that room's speaker to lure him there. When he forces June's door, **push back by pressing the keys shown, in order (W A S D)**. When he's at the window you have only a moment: look at it and **hold the mouse button** to keep the shutters shut. And Thimble, the doll in the rocking chair, must be sung to: L with the monitor down winds the music box, but Mr. Hush knows that song too.
+**Holdout (3:00 AM to 6:00 AM):** if anything gets in, you die. Space raises the baby monitor; 1, 2 and 3 switch rooms, and L plays a lullaby through that room's speaker to lure him there. When he forces June's door, **push back by pressing the keys shown, in order (W A S D)**. The window stays dark: **knock (Q) to light it up** and see if he's out there, and when he comes, look at it and **hold the mouse button** to keep the shutters shut. And Thimble, the doll in the rocking chair behind you, must be sung to: watch his shadow grow on the wall in front of you, and press L with the monitor down to wind the music box. But Mr. Hush knows that song too, and the lullaby and the music box share one wait and the monitor's battery.
 
 ## The story so far
 

@@ -182,7 +182,7 @@ export class UI {
   <div id="breath"><div class="label"><kbd data-bind="breath">Space</kbd>Breath</div><div class="bar"><i id="breath-i"></i></div></div>
   <div id="doorfight"><div class="t">Hold the door</div><div class="seq" id="df-seq"></div><div class="bar"><i id="df-gap"></i></div><div class="cap">How far he has it open</div></div>
   <div id="struggle"><div class="t">Break free</div><div class="keys"><kbd id="k-a" data-bind="left">A</kbd><kbd id="k-d" data-bind="right">D</kbd></div><div class="bar"><i id="struggle-i"></i></div></div>
-  <div id="clock"><div class="time" id="clock-t">3:00<small>AM</small></div><span class="label">Until dawn</span></div>
+  <div id="clock"><div class="time" id="clock-t">3:00<small>AM</small></div><span class="label">Until dawn</span><div class="hstat"><span class="label" id="hs-bat">Battery 100%</span><span class="label" id="hs-song">Lullaby ready</span></div></div>
   <div id="inventory"><span class="label">Carrying<span class="dash"></span></span><ul id="inv-list"></ul></div>
   <div id="tape"><div id="tape-svg"></div><div class="meta"><span id="tape-title">Tape</span><b id="tape-time">00:00</b></div></div>
 </div>
@@ -647,6 +647,13 @@ export class UI {
     this.el('clock').classList.toggle('on', on);
     if (!on) return;
     this.el('clock-t').innerHTML = `${h}:${String(m).padStart(2, '0')}<small>AM</small>`;
+  }
+
+  // holdout: monitor battery (the lure lullaby and the music box both use it) and their shared wait
+  holdoutStatus(battery, cool) {
+    const b = `Battery ${Math.ceil(battery)}%`, sg = cool > 0 ? `Lullaby in ${Math.ceil(cool)}s` : 'Lullaby ready';
+    if (this._hsB !== b) { this._hsB = b; const e = this.el('hs-bat'); e.textContent = b; e.classList.toggle('low', battery < 25); }
+    if (this._hsS !== sg) { this._hsS = sg; const e = this.el('hs-song'); e.textContent = sg; e.classList.toggle('wait', cool > 0); }
   }
 
   tape(on, info) {
