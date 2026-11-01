@@ -614,6 +614,8 @@ export class Game {
   }
   closeDoc() {
     this.docOpen = false;
+    // use up the press that closed it, or the same tap reopens the item you're still looking at
+    for (const c of this.input.codes('interact')) this.input.pressed.delete(c);
     this.ui.closeDoc();
     this.audio.play('paper', { gain: 0.45, bus: 'ui' });
     if (this.newEvidence) { this.newEvidence = false; this.evidenceNotice(); }
