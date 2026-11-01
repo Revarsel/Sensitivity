@@ -3,7 +3,7 @@
 A critical pass over Chapter 1. I went through the game in order (boot, menu, prologue, the house, documents, evidence, being hunted and grabbed, hiding, June's room, the holdout's monitor, door, window and Thimble, dawn, end and death), capturing 1280×720 frames at each step and checking suspicious spots with measurements. Each item says what's wrong, why it matters, and a suggested fix.
 
 **Effort:** S = under an hour · M = a few hours · L = a day or more.
-**Status:** tick items off (or delete them) as they're done.
+**Status:** tick items off (or delete them) as they're done. Items marked **[Done]** were fixed on the `fix/top-issues-and-hiding` branch.
 
 ---
 
@@ -11,10 +11,10 @@ A critical pass over Chapter 1. I went through the game in order (boot, menu, pr
 
 | # | Issue | Area | Effort |
 |---|---|---|---|
-| 1 | Mr. Hush's head clips through every door top and the ceiling | Visual bug | S–M |
-| 2 | The bottom of the screen is overcrowded: prompt, hints, breath bar and subtitles stack and overlap | Clarity | M |
-| 3 | Deaths don't say *why* you died | Clarity / fairness | M |
-| 4 | Nothing teaches that evidence lights up when a sound reaches it | Clarity | S |
+| 1 | ~~Mr. Hush's head clips through every door top and the ceiling~~ **Done**: he squashes and bows under doorways (ceiling was never actually hit) | Visual bug | S–M |
+| 2 | ~~The bottom of the screen is overcrowded~~ **Done**: HUD lanes, duplicate breath text removed | Clarity | M |
+| 3 | ~~Deaths don't say *why* you died~~ **Done**: "What gave you away" line | Clarity / fairness | M |
+| 4 | ~~Nothing teaches that evidence lights up when a sound reaches it~~ **Done**: chime + first-time hint | Clarity | S |
 | 5 | You can wake him in the first minute, before the game has taught stealth | Onboarding | S |
 | 6 | One key (L) does two opposite things in the holdout | Clarity | S |
 | 7 | The first window attack is very punishing for a first-timer | Difficulty | S |
@@ -26,20 +26,20 @@ A critical pass over Chapter 1. I went through the game in order (boot, menu, pr
 
 ## 1. Bugs and rough edges
 
-1. **Mr. Hush clips through door tops and the ceiling.** Measured: his top is 2.72 m while walking (the ceiling is 2.70 m) and 2.43 m while squeezing through a doorway, but doorways are only 2.10 m tall. His head and shoulders pass through the wall above every door.
+1. **[Done] Mr. Hush clips through door tops and the ceiling.** Measured: his top is 2.72 m while walking (the ceiling is 2.70 m) and 2.43 m while squeezing through a doorway, but doorways are only 2.10 m tall. His head and shoulders pass through the wall above every door.
    *Fix:* when squeezing, bend him over: drop the hips, add knee and hip bend, and tip the torso forward until his top is ≤ 2.05 m. Lower his standing height slightly, or slump his posture, so the ears stay under the ceiling. (S–M)
-2. **Long documents get cut off** at smaller window heights: the end of the police report (the red "taller than the door" stamp, the punchline) is clipped at 720p.
+2. **[Done] Long documents get cut off** at smaller window heights: the end of the police report (the red "taller than the door" stamp, the punchline) is clipped at 720p.
    *Fix:* scale the paper to fit the viewport height, or make it scroll with a visible "more below" cue. (S)
 3. **Close-up knocks still bloom heavily.** Knocking on a surface right in front of you fills the frame with white glow, even after the new limiter.
    *Fix:* lower bloom strength a little (0.6 → ~0.48), or scale the knock's brightness by how close the surface is. (S)
-4. **Opening text overlaps.** The "The House" chapter card and the first hint ("Every sound you make shows you the world.") sit on top of each other mid-screen.
+4. **[Done] Opening text overlaps.** The "The House" chapter card and the first hint ("Every sound you make shows you the world.") sit on top of each other mid-screen.
    *Fix:* delay the first hint until the card has faded (≥ 6.2 s), or move hints to their own lane (see #2). (S)
-5. **Duplicate holdout instructions.** At 3:00 the prompt "Space: Raise the baby monitor" sits right above a hint that says the same, and both overlap the fading "Until dawn" card.
+5. **[Done] Duplicate holdout instructions.** At 3:00 the prompt "Space: Raise the baby monitor" sits right above a hint that says the same, and both overlap the fading "Until dawn" card.
    *Fix:* suppress the generic monitor prompt while the hint is showing; delay the hint until the card is gone. (S)
 
 ## 2. Clarity and "what am I supposed to do?"
 
-6. **HUD lanes.** The bottom-centre area carries the interaction prompt, tutorial hints, the breath bar (whose own label repeats the hint "Hold your breath. This close, he can hear you breathing"), the struggle panel and subtitles. They collide constantly.
+6. **[Done] HUD lanes.** The bottom-centre area carries the interaction prompt, tutorial hints, the breath bar (whose own label repeats the hint "Hold your breath. This close, he can hear you breathing"), the struggle panel and subtitles. They collide constantly.
    *Fix:* give each a fixed lane:
    - prompt just under the crosshair;
    - tutorial hints at top-centre or bottom-left;
@@ -47,7 +47,7 @@ A critical pass over Chapter 1. I went through the game in order (boot, menu, pr
    - subtitles at the bottom.
 
    Drop the duplicate breath text. (M)
-7. **Deaths need a reason.** "He heard you." is flavour, not feedback. Examples of what it could say:
+7. **[Done] Deaths need a reason.** "He heard you." is flavour, not feedback. Examples of what it could say:
    - "He heard you running."
    - "You breathed while he checked the wardrobe."
    - "You were caught again within 45 seconds."
@@ -55,7 +55,7 @@ A critical pass over Chapter 1. I went through the game in order (boot, menu, pr
    - "Nobody sang to Thimble."
 
    *Fix:* record the cause when the grab or death happens and show it as a small line under the title. (M)
-8. **Evidence discovery isn't taught.** Items stay dark until a sound reaches them, but nothing says so, so new players can walk past most of the 17 items.
+8. **[Done] Evidence discovery isn't taught.** Items stay dark until a sound reaches them, but nothing says so, so new players can walk past most of the 17 items.
    *Fix:* the first time an item lights up, add a one-time hint ("Something answers the sound: evidence") and a soft chime. Optionally make lore items give off a faint sound (paper rustle) when your pulse reaches them. (S)
 9. **No direction toward objectives.** "Find June's room" in a pitch-black house gives no lead.
    *Fix:* light signposting:

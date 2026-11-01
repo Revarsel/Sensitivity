@@ -283,7 +283,8 @@ export class Chapter1 {
       this.at(5.9, () => { if (this.objective === 'find_room') this.setObjective('find_room'); });
       this.at(0.9, () => this.slamFront());
       this.at(1.2, () => g.ui.card('Chapter One', 'The House', 4600));
-      this.at(6.4, () => g.ui.hint('Every sound you make shows you the world.', 4800, true));
+      // after the chapter card has faded (1.2 s + 4.6 s + fade)
+      this.at(6.9, () => g.ui.hint('Every sound you make shows you the world.', 4800, true));
       this.at(11.5, () => { const i = g.input; g.ui.hint(K([i.label('forward'), i.label('left'), i.label('back'), i.label('right')].join(' '), 'Move') + K(i.label('run'), 'Run') + K(i.label('creep'), 'Creep'), 6500); });
       this.at(19, () => g.ui.hint(K(g.input.label('knock'), 'Knock: make a sound on purpose'), 5500));
     } else if (cp === 'awake') {

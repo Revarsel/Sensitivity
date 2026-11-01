@@ -142,7 +142,7 @@ export class UI {
 <section id="doc" class="screen">
   <div class="doc-title label" id="doc-title"></div>
   <div class="paper-wrap" id="doc-paper"></div>
-  <div class="controls"><span><kbd>E</kbd>Put down</span><span id="doc-tr"><kbd>T</kbd>Transcript</span></div>
+  <div class="controls"><span><kbd>E</kbd>Put down</span><span id="doc-tr"><kbd>T</kbd>Transcript</span><span class="more">Scroll for more</span></div>
 </section>
 
 <section id="death" class="screen grain cursor-ring">
@@ -150,6 +150,7 @@ export class UI {
     <span class="label"><span class="dash"></span><span id="death-cp"></span></span>
     <h2 id="death-title">He heard you.</h2>
     <p id="death-sub">The humming starts again, somewhere in the house.</p>
+    <div class="cause" id="death-cause-box"><span class="label">What gave you away</span><p id="death-cause"></p></div>
     <ul class="menu-list" id="death-list">
       <li><button data-act="retry"><span class="num">i.</span><span class="rule"></span>Try again</button></li>
       <li><button data-act="quit"><span class="num">ii.</span><span class="rule"></span>Quit to menu</button></li>
@@ -178,7 +179,7 @@ export class UI {
   <div id="message"></div>
   <div id="subs"><span class="who" id="subs-who"></span><div class="line" id="subs-line"></div></div>
   <div id="noise"><div class="label"><span>Noise</span><b id="noise-state">Quiet</b></div><canvas id="noise-cv" width="340" height="68"></canvas><div class="stam" id="stam"><i id="stam-i"></i></div></div>
-  <div id="breath"><div class="label"><kbd data-bind="breath">Space</kbd>Hold your breath</div><div class="bar"><i id="breath-i"></i></div></div>
+  <div id="breath"><div class="label"><kbd data-bind="breath">Space</kbd>Breath</div><div class="bar"><i id="breath-i"></i></div></div>
   <div id="doorfight"><div class="t">Hold the door</div><kbd id="df-key">W</kbd><div class="bar"><i id="df-gap"></i></div><div class="pips" id="df-prog"><i></i></div></div>
   <div id="struggle"><div class="t">Break free</div><div class="keys"><kbd id="k-a" data-bind="left">A</kbd><kbd id="k-d" data-bind="right">D</kbd></div><div class="bar"><i id="struggle-i"></i></div></div>
   <div id="clock"><div class="time" id="clock-t">3:00<small>AM</small></div><span class="label">Until dawn</span></div>
@@ -430,12 +431,29 @@ export class UI {
     this.el('doc-paper').scrollTop = 0;
     this.el('doc-tr').style.display = d.style === 'diane' || d.style === 'drawing' || d.style === 'note' ? '' : 'none';
     this.show('doc', true);
+    this.fitDoc();
+  }
+  // Fit the page to the window: shrink it a little if needed (down to 72%); if it still
+  // doesn't fit, it scrolls (wheel, W/S, arrows) and says so.
+  fitDoc() {
+    const wrap = this.el('doc-paper'), paper = wrap.querySelector('.paper');
+    if (!paper) return;
+    paper.style.zoom = 1;
+    const avail = window.innerHeight - 150 - 28;
+    const z = Math.max(0.72, Math.min(1, avail / paper.offsetHeight));
+    paper.style.zoom = z;
+    requestAnimationFrame(() => this.el('doc').classList.toggle('scrolls', wrap.scrollHeight > wrap.clientHeight + 4));
+  }
+  scrollDoc(dy) {
+    const wrap = this.el('doc-paper');
+    wrap.scrollBy({ top: dy, behavior: 'smooth' });
   }
   toggleTranscript() {
     if (!this.docId) return;
     this.docTranscript = !this.docTranscript;
     this.el('doc-paper').innerHTML = this.paperHTML(this.docId, this.docTranscript);
     smartQuotes(this.el('doc-paper'));
+    this.fitDoc();
   }
   scrollDoc(dy) { this.el('doc-paper').scrollTop += dy; }
   closeDoc() { this.show('doc', false); this.docId = null; }
@@ -651,10 +669,12 @@ export class UI {
   }
 
   // ------------------------------------------------------------ death / end
-  death(cpLabel, title, sub) {
+  death(cpLabel, title, sub, cause = '') {
     this.el('death-cp').textContent = `Checkpoint · ${cpLabel}`;
     if (title) this.el('death-title').textContent = title;
     if (sub) this.el('death-sub').textContent = sub;
+    this.el('death-cause').textContent = cause;
+    this.el('death-cause-box').style.display = cause ? '' : 'none';
     this.show('death', true);
   }
   end(stats) {

@@ -214,7 +214,9 @@ export class Holdout {
       if (this.holding === 'window') g.ui.setPrompt('Mouse', 'Holding the shutters');
       else if (dYaw(this.windowYaw) < 0.4) g.ui.setPrompt('Hold mouse', 'Hold the shutters closed');
       else if (dYaw(this.dollYaw) < 0.45) g.ui.setPrompt(input.label('lullaby'), this.thimble.singing ? 'The music box is playing' : 'Wind the music box', 'He will hear it');
-      else g.ui.setPrompt(input.label('monitor'), 'Raise the baby monitor');
+      // (not while the opening hint already says it)
+      else if (this.time > 11.5) g.ui.setPrompt(input.label('monitor'), 'Raise the baby monitor');
+      else g.ui.setPrompt(null);
     } else g.ui.setPrompt(null);
 
     // door shake visual
@@ -509,6 +511,7 @@ export class Holdout {
 
   loseDoorFight() {
     const g = this.g;
+    g.deathCause = 'door_fight';
     this.fight = null;
     g.ui.doorFight(false);
     this.breach(true);
@@ -584,6 +587,7 @@ export class Holdout {
     const g = this.g, h = g.hush;
     this.stopBreath();
     this.breachKind = atDoor ? 'door' : 'window';
+    if (!atDoor) g.deathCause = 'window';
     if (atDoor) {
       const d = g.house.doorJune;
       d.setTarget(true, 4.5);

@@ -59,7 +59,18 @@ export class Interactions {
       const on = it.enabled() && it.obj.visible;
       // the hold starts when a new wave arrives (not for as long as that pulse lives)
       const pid = on ? g.pulses.sweptOver(p.x, p.y, p.z) : 0;
-      if (pid > (it._pid ?? 0)) { it._pid = pid; it._revealAt = g.time; }
+      if (pid > (it._pid ?? 0)) {
+        it._pid = pid; it._revealAt = g.time;
+        // your own sound found something: a soft chime, and the first time, say what it means
+        if (g.pulses.lastSweptSrc === 'player' && g.time - (it._chimeAt ?? -1e9) > 8 && it.id.startsWith('lore:') && !g.lore.has(it.id.slice(5))) {
+          it._chimeAt = g.time;
+          g.audio.play('tine', { pos: { x: p.x, y: p.y, z: p.z }, gain: 0.35, rate: 1.5 });
+          if (!g.evidenceHintShown) {
+            g.evidenceHintShown = true;
+            g.ui.hint(`<span>Something answered the sound. Evidence glows when your sound reaches it</span><span><kbd>${g.input.label('interact')}</kbd>Take a look</span>`, 6500);
+          }
+        }
+      }
       const since = g.time - (it._revealAt ?? -1e9);
       const lit = since < REVEAL_HOLD ? 1 : Math.max(0, 1 - (since - REVEAL_HOLD) / REVEAL_FADE);
       const aim = it === this.current ? (lit > 0.05 ? 1 : 0.3) : 0;

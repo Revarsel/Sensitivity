@@ -366,6 +366,10 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
   color: var(--bone-dim);
 }
 #doc .controls span { display: inline-flex; align-items: center; }
+/* a page taller than the window: fade the bottom edge and say it scrolls */
+#doc .controls .more { display: none; color: var(--bone); }
+#doc.scrolls .controls .more { display: inline-flex; }
+#doc.scrolls .paper-wrap { -webkit-mask-image: linear-gradient(to bottom, #000 88%, transparent); mask-image: linear-gradient(to bottom, #000 88%, transparent); }
 #doc .doc-title { position: absolute; top: 34px; left: 0; right: 0; text-align: center; }
 
 .paper {
@@ -545,9 +549,12 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 #subs.large .who { font-size: 12px; }
 #subs.small .line { font-size: 18px; }
 
+/* HUD lanes: interaction prompt under the crosshair; tutorial key hints top-centre; story lines
+   (.quote) lower-centre; short messages at 64%; subtitles at the bottom; breath bar bottom-left
+   above the noise meter. Keep new HUD elements in a lane so they never stack. */
 #hint {
   position: absolute;
-  left: 50%; bottom: 24vh;
+  left: 50%; top: clamp(78px, 13vh, 130px);
   transform: translateX(-50%);
   display: flex;
   gap: 26px;
@@ -564,7 +571,7 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 }
 #hint.on { opacity: 1; }
 #hint span { display: inline-flex; align-items: center; }
-#hint.quote { font-family: var(--serif); font-style: italic; font-size: 20px; text-transform: none; letter-spacing: 0; color: var(--bone); }
+#hint.quote { top: auto; bottom: 24vh; font-family: var(--serif); font-style: italic; font-size: 20px; text-transform: none; letter-spacing: 0; color: var(--bone); }
 
 #message {
   position: absolute;
@@ -597,15 +604,15 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 
 #breath {
   position: absolute;
-  left: 50%; top: calc(50% + 78px);
-  transform: translateX(-50%);
-  width: 240px;
-  text-align: center;
+  left: clamp(26px, 4vw, 54px);
+  bottom: calc(clamp(24px, 4.5vh, 44px) + 74px);
+  width: 170px;
+  text-align: left;
   opacity: 0;
   transition: opacity 0.4s;
 }
 #breath.on { opacity: 1; }
-#breath .label { display: flex; justify-content: center; align-items: center; margin-bottom: 10px; }
+#breath .label { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 8px; }
 #breath .bar { height: 1px; background: rgba(216, 209, 194, 0.15); position: relative; }
 #breath .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ice); width: 100%; }
 #breath.held .bar i { background: var(--bone); }
@@ -790,6 +797,10 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 #death .wrap { text-align: left; width: min(820px, 84vw); }
 #death h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(54px, 7vw, 96px); margin: 14px 0 12px; color: var(--bone); }
 #death p { font-style: italic; color: var(--bone-dim); font-size: 19px; margin: 0 0 44px; }
+/* why you died: a plain hint, upright, between the flavour line and the buttons */
+#death .cause { margin: -20px 0 40px; padding-left: 14px; border-left: 1px solid var(--blood); max-width: 620px; }
+#death .cause .label { display: block; margin-bottom: 6px; }
+#death .cause p { margin: 0; font-style: normal; font-size: 17px; line-height: 1.45; color: var(--bone); }
 
 #end { background: var(--void); display: grid; place-items: center; overflow: hidden; }
 #end .wrap { width: min(640px, 86vw); }

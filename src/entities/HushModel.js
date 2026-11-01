@@ -267,6 +267,11 @@ export function createHushModel() {
   };
 }
 
+// doorway stoop (pose.squeeze): forward lean, chin down and a hip drop, so his head clears 2.1 m
+// He squashes down rather than leaning far forward: a big lean pushed his head a metre ahead of his
+// body, into the wall beside the door when he came at it at an angle.
+const DUCK_LEAN = 0.5, DUCK_NECK = 0.45, DUCK_HIPS = 0.18, DUCK_SQUASH = 0.27;
+
 // Damped spring toward a target (state kept in `st`): the heavy, slightly late, overshooting
 // motion of a big stuffed body. Sub-stepped so it stays stable at low frame rates.
 function spring(st, key, target, dt, k = 60, damp = 10) {
@@ -304,7 +309,7 @@ export function animateHush(m, dt, time, phase) {
   // ---- hips: waddle, bob, a heavy dip on each footfall, lean into turns
   // seated, the hips rest on the cushion (~0.48 m) rather than sinking through it
   m.hips.position.y = 0.78 + Math.abs(s) * (0.05 + run * 0.03) * walkAmt - fall * (0.03 + run * 0.035)
-    - p.hunch * 0.06 - sit * 0.14 - stag * 0.05;
+    - p.hunch * 0.06 - sit * 0.14 - stag * 0.05 - sq * DUCK_HIPS;
   m.hips.position.z = -sit * 0.15;
   m.hips.rotation.z = c * (0.07 + run * 0.04) * walkAmt - turn * 0.1;
   m.hips.rotation.y = s * 0.07 * walkAmt;
@@ -318,14 +323,17 @@ export function animateHush(m, dt, time, phase) {
   m.legs[1].rotation.z = sit * 0.15 + 0.04 * walkAmt;
 
   // ---- torso: hunched when hunting, slumped asleep, thrown back when stunned. Spring = momentum.
-  const lean = 0.12 + p.hunch * 0.35 + walkAmt * 0.08 + run * 0.18 - sit * 0.25 + breath * 0.018
+  // squeezing through a doorway he also stoops low (doorways are 2.1 m, he is 2.6 m)
+  const lean = 0.12 + p.hunch * 0.35 * (1 - sq) + sq * DUCK_LEAN + walkAmt * 0.08 + run * 0.18 - sit * 0.25 + breath * 0.018
     - stag * 0.4 + grab * 0.15 + p.reach * 0.2 + fall * 0.04;
   m.torso.rotation.x = spring(A, 'tx', lean, dt, 40, 9);
   m.torso.rotation.y = -s * (0.09 + run * 0.06) * walkAmt; // counter-twist against the hips
   m.torso.rotation.z = -c * 0.05 * walkAmt + sit * 0.12 + stag * Math.sin(time * 9) * 0.1 - turn * 0.06;
   // squeezing through a doorway: 1.25 m of stuffing squashes to ~0.85 m (the head keeps its shape)
   m.torso.scale.x = 1 - 0.32 * sq;
+  m.torso.scale.y = 1 - DUCK_SQUASH * sq; // squashed down as well as narrower
   m.neck.scale.x = 1 / m.torso.scale.x;
+  m.neck.scale.y = 1 / m.torso.scale.y;
 
   // ---- arms: too long, too loose. They swing late and overshoot; stunned, he clutches his head.
   for (let i = 0; i < 2; i++) {
@@ -357,7 +365,7 @@ export function animateHush(m, dt, time, phase) {
   // sniffing: snout up, short quick pulls
   const pulls = sniff * Math.max(0, Math.sin(time * 26)) * 0.08;
   // the head bobs a beat behind the body; asleep, it lifts as noise builds (stir)
-  const neck = -p.hunch * 0.35 + sit * 0.45 * (1 - stir * 0.75) + grab * 0.3 + run * 0.1 - sniff * 0.3
+  const neck = -p.hunch * 0.35 * (1 - sq) + sq * DUCK_NECK + sit * 0.45 * (1 - stir * 0.75) + grab * 0.3 + run * 0.1 - sniff * 0.3
     + Math.sin(phase * 2) * (0.03 + run * 0.04) * walkAmt + fall * 0.05;
   m.neck.rotation.x = spring(A, 'nx', neck, dt, 55, 7);
   m.head.rotation.z = 0.16 + p.listen * 0.42 + sit * 0.3 * (1 - stir * 0.6) + Math.sin(time * 0.7) * 0.03

@@ -4,6 +4,9 @@ import { resolveCircle } from '../core/Collision.js';
 // keep his body out of walls and furniture (a safety net: the nav grid already keeps paths clear).
 // Radii stay inside the nav margins so the two never fight. Low furniture only needs his legs' width.
 const BODY_R = 0.46, LEGS_R = 0.3, LOW_Y = 1.05;
+// hiding-spot checks: how long he stands at the spot (longer if he heard you get in)
+const CHECK_TIME = 2.6, HEARD_CHECK = 3.6;
+const CLEARED_FOR = 30; // seconds a spot he found empty stays off his list
 import { HushVoice } from '../audio/Audio.js';
 import { PULSE } from '../render/Pulses.js';
 
@@ -36,6 +39,7 @@ export class MrHush {
     this.lastHeard = null;
     this.disturbances = [];
     this.hideMemory = {};
+    this.clearedAt = {}; // spot id -> time he last found it empty
     this.heardEnter = null;
     this.searchFrom = null;
     this.awareness = 0;
@@ -140,11 +144,25 @@ export class MrHush {
 
     if (o.kind === 'hide' && fromPlayer) this.heardEnter = { spot: o.spot, t: this.g.time };
 
+    // breathing from a hiding spot: he goes straight to check that spot. (Restarting an
+    // investigate/search on every breath used to keep him circling you forever.) The check then
+    // settles it: breathe and he finds you, hold it and he leaves.
+    const hid = this.g.player.hidden;
+    if (fromPlayer && o.kind === 'breath' && hid) {
+      if (this.state === 'check' && this.checking === hid) return; // already on his way
+      this.checking = hid;
+      this.checkPhase = 0;
+      this.goTo(hid.out.x, hid.out.z, 'check');
+      return;
+    }
+
     const alert = this.state === 'hunt' || this.state === 'investigate' || this.state === 'search' || this.state === 'check';
     if (fromPlayer) {
       // soft sounds (creeping, breathing, slow doors) only make him curious unless you're right on top of him
       const huntAt = o.soft ? 0.75 : 0.42;
       if (intensity > huntAt || (alert && !o.soft && intensity > 0.12) || this.state === 'hunt') {
+        // remember what gave you away (shown on the death screen if he gets you)
+        this.huntCause = o.kind === 'step' ? (this.g.player.moveState === 'sprint' ? 'run' : 'step') : (o.kind || 'step');
         this.goTo(o.x, o.z, 'hunt');
       } else {
         this.goTo(o.x, o.z, 'investigate');
@@ -234,6 +252,7 @@ export class MrHush {
         this.smellT = 0;
         this.sniff(1);
         this.voice.cut();
+        this.huntCause = 'smell';
         this.goTo(pl.pos.x, pl.pos.z, 'investigate');
       }
     } else this.smellT = 0;
@@ -290,6 +309,9 @@ export class MrHush {
       }
       case 'search': {
         P.listen = Math.min(1, P.listen + dt * 2);
+        // you're hidden close by: a short look round, then he goes to the hiding spots, so the whole
+        // search-and-check fits inside one held breath
+        if (pl.hidden && dP < 4.5 && this.timer > 1.8) this.timer = 1.2 + Math.random() * 0.6;
         this.timer -= dt;
         if (this.canTrack(dP, 4.5)) { this.goTo(pl.pos.x, pl.pos.z, 'hunt'); break; }
         this.lookTarget = Math.sin(this.stateTime * 1.4) * 0.9;
@@ -310,6 +332,8 @@ export class MrHush {
         if (!this.checkPhase) {
           if (this.followPath(dt, moveSpeed)) {
             this.checkPhase = 1; this.timer = 0; this.breathFail = false;
+            // he heard you get in here: he takes longer over it (hold your breath longer)
+            this.checkDur = this.heardEnter && this.heardEnter.spot === spot && g.time - this.heardEnter.t < 25 ? HEARD_CHECK : CHECK_TIME;
             g.audio.play('door_creak_fast', { pos: { x: spot.x, y: 1, z: spot.z }, gain: 0.9 });
             g.sound({ x: spot.out.x, z: spot.out.z, radius: 3.5, source: 'hush', color: PULSE.HUSH, strength: 0.9 });
             g.emit('hushCheck', spot);
@@ -320,12 +344,17 @@ export class MrHush {
           // face the hiding spot
           this.turnToward(spot.x, spot.z, dt, 6);
           if (g.player.hidden === spot && this.timer > 0.5 && !g.player.breathHeld) this.breathFail = true;
-          if (this.timer > 2.6) {
+          if (this.timer > (this.checkDur || CHECK_TIME)) {
             P.reach = 0;
             this.checkPhase = 0;
-            const caught = g.player.hidden === spot && (this.breathFail || (this.heardEnter && this.heardEnter.spot === spot && g.time - this.heardEnter.t < 25 && Math.random() < 0.5));
+            // only your breathing gives you away: holding it through the check always works
+            const caught = g.player.hidden === spot && this.breathFail;
             this.heardEnter = null;
-            if (caught) { this.startGrab(true); break; }
+            if (caught) { this.grabCause = 'hidden'; this.startGrab(true); break; }
+            // came up empty: from now on he ignores soft sounds from a hidden player (see hear()),
+            // even while he checks somewhere else, so your breathing afterwards can't drag him back
+            this.leaveUntil = g.time + 15;
+            this.clearedAt[spot.id] = g.time;
             // keep searching others, a little less likely each time
             const next = Math.random() < 0.45 ? this.pickHideToCheck(spot) : null;
             if (next) { this.checking = next; this.goTo(next.out.x, next.out.z, 'check'); }
@@ -360,11 +389,25 @@ export class MrHush {
 
     if (this.state !== 'grab' && this.state !== 'stunned') P.grab = Math.max(0, P.grab - dt * 3);
     if (this.state !== 'stunned') P.stagger = Math.max(0, P.stagger - dt * 3);
-    // doorways: squash through them (the doors are 0.92 m, he is not)
+    // doorways: squash and stoop through them (doors are 0.92 x 2.1 m, he is not). Only for a
+    // doorway he is actually going through: on his next path legs, or the one he's standing in.
+    const nav = g.nav, f = g.house.field;
     let dDoor = 9;
-    for (const d of g.nav.doors) dDoor = Math.min(dDoor, Math.hypot(d.x - this.x, d.z - this.z));
-    const sqT = P.sit > 0.05 ? 0 : 1 - Math.min(1, Math.max(0, (dDoor - 0.55) / 0.8));
-    P.squeeze += (sqT - P.squeeze) * Math.min(1, dt * 6);
+    const pa = this.path, k = this.pathI;
+    if (pa && k < pa.length) {
+      // look up to three legs ahead, so the stoop starts before his head reaches the wall
+      let ax = this.x, az = this.z, d1 = null;
+      for (let j = k; j < Math.min(pa.length, k + 3) && !d1; j++) {
+        d1 = nav.doorOn(ax, az, pa[j][0], pa[j][1]);
+        ax = pa[j][0]; az = pa[j][1];
+      }
+      if (d1) dDoor = Math.hypot(d1.x - this.x, d1.z - this.z);
+    }
+    const inDoor = nav.doorById[f.door[f.index(this.x, this.z)]];
+    if (inDoor) dDoor = Math.min(dDoor, Math.hypot(inDoor.x - this.x, inDoor.z - this.z));
+    // full squeeze and stoop from 1 m out, starting at 2 m (he leans forward, so his head reaches the wall first)
+    const sqT = P.sit > 0.05 ? 0 : 1 - Math.min(1, Math.max(0, (dDoor - 1.0) / 1.0));
+    P.squeeze += (sqT - P.squeeze) * Math.min(1, dt * (sqT > P.squeeze ? 10 : 5));
     P.speed += (moveSpeed - P.speed) * Math.min(1, dt * 6);
     P.hunch += (((this.state === 'hunt' ? 1 : 0) + (this.nearDoorway() ? 0.9 : 0)) - P.hunch) * Math.min(1, dt * 4);
     if (this.state !== 'check') P.reach = Math.max(0, P.reach - dt * 3);
@@ -379,7 +422,7 @@ export class MrHush {
 
     // contact
     if (['wander', 'investigate', 'hunt', 'search', 'check'].includes(this.state) && !pl.hidden && pl.mode === 'walk') {
-      if (this.state === 'hunt' && dP < 1.0) this.startGrab(false);
+      if (this.state === 'hunt' && dP < 1.0) { this.grabCause = this.huntCause || 'step'; this.startGrab(false); }
       else if (dP < 1.15) {
         // he bumps into something warm: stops, sniffs, then lunges
         if (!this.touchT) {
@@ -389,7 +432,7 @@ export class MrHush {
         }
         this.touchT += dt;
         this.path = null;
-        if (this.touchT > 0.75) { this.touchT = 0; this.startGrab(false); }
+        if (this.touchT > 0.75) { this.touchT = 0; this.grabCause = this.huntCause === 'smell' ? 'smell' : 'touch'; this.startGrab(false); }
       } else if (this.touchT) {
         this.touchT = 0;
         this.goTo(pl.pos.x, pl.pos.z, 'hunt');
@@ -454,7 +497,9 @@ export class MrHush {
   }
 
   pickHideToCheck(exclude) {
-    const spots = this.g.house.hideSpots.filter((s) => s !== exclude);
+    // a spot he has just found empty is off his list for a while
+    const now = this.g.time;
+    const spots = this.g.house.hideSpots.filter((s) => s !== exclude && now - (this.clearedAt[s.id] ?? -1e9) > CLEARED_FOR);
     const ref = this.searchFrom || { x: this.x, z: this.z };
     let best = null, bestScore = 0;
     for (const s of spots) {
@@ -585,6 +630,7 @@ export class MrHush {
     this.voice.stop();
     this.disturbances = [];
     this.hideMemory = {};
+    this.clearedAt = {}; // spot id -> time he last found it empty
     this.heardEnter = null;
     this.checkPhase = 0;
     this.awareness = 0;

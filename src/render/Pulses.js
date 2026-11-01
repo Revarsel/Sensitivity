@@ -97,6 +97,7 @@ export class PulseSystem {
     s.life = radius / s.speed + s.hold + s.tail;
     s.fade = 1;
     s.reveals = o.reveals ?? true;
+    s.src = o.src || null;
     s.id = this.nextId = (this.nextId || 0) + 1;
     s.dist = null;
     if (!s.euclid) { s.dist = this.field.compute(s.x, s.z, 0, radius + 0.5); this._writeField(best, s.dist); }
@@ -114,7 +115,7 @@ export class PulseSystem {
       const geo = s.dist ? this.field.sample(s.dist, x, z) : eu;
       const dy = y - s.y;
       const d = Math.sqrt(geo * geo + dy * dy * 0.55);
-      if (d <= s.radius && d < s.maxR * 0.85 && s.id > best) best = s.id;
+      if (d <= s.radius && d < s.maxR * 0.85 && s.id > best) { best = s.id; this.lastSweptSrc = s.src; }
     }
     return best;
   }

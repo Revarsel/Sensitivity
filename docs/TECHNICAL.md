@@ -93,9 +93,9 @@ Other visual pieces:
 
 - Noise is multiplied by the floor: carpet ×0.6, rug ×0.5, wood ×1, tile ×1.3, glass ×2.2, grass ×0.7.
 - **Knock (Q)** makes a sound on purpose to see, with a 0.85 s cooldown so it can't be spammed.
-- **Breath (Space):** within 4.5 m of Mr. Hush your breathing is audible to him. Hold it (about 6.5 s, or 10 s while hidden). Running out makes you gasp, which he hears, and your vision tunnels as you near passing out.
+- **Breath (Space):** within 4.5 m of Mr. Hush your breathing is audible to him. Hold it (about 6.5 s, or 12 s while hidden). Running out makes you gasp, which he hears, and your vision tunnels as you near passing out.
 - **Doors:** tap E to open fast and loud, or hold E to open slowly and quietly.
-- **Hiding:** wardrobe, linen closet, under the bed. The camera glides in and out instead of teleporting.
+- **Hiding:** wardrobe, linen closet, under the bed. The camera glides in and out instead of teleporting. Only your breathing gives you away: hold your breath while he checks and he leaves, even if he saw you get in (then he looks longer). Breathing near him sends him straight to your spot to check it.
 - **Throwing:** pick up bottles and blocks and throw them as decoys. A throw only counts if the mouse press started during play, so clicking a menu button never throws.
 - **Camera:** head bob (optional), a lean when strafing, fear sway, shake (reduced by the *Reduce flashing* setting), and a "forced look" for grabs and cutscenes.
 
@@ -107,7 +107,7 @@ Other visual pieces:
 - **Player vs Mr. Hush:** you can't get closer than 0.75 m to his centre. If he walks into you, you're shoved aside but never into a wall.
 - **Mr. Hush vs world** (he is ~1.25 m wide, ~1 m deep and 2.6 m tall):
   - **Pathfinding margins:** his routes keep about 0.6 m from walls, 0.5 m from tall furniture and 0.36 m from low furniture (his belly passes over low things).
-  - **Doorways:** paths go through the middle of each doorway, square to the wall. Near a doorway he **squashes through**: his stuffed body narrows to ~0.85 m, his arms tuck in, and he slows down.
+  - **Doorways:** paths go through the middle of each doorway, square to the wall. When his path goes through a doorway he **squashes through**: his stuffed body narrows to ~0.85 m and squashes down, his arms tuck in, his head bows, and he slows down. Nothing of him passes through the wall above a door (doorways are 2.1 m; he stands 2.55 m, under the 2.7 m ceiling).
   - **Push-out:** every frame his body is pushed out of walls and furniture as a safety net for stumbles, corners and teleports.
   - **His chair:** Mom's armchair is stretched so he actually sits in it.
 - **Grab placement:** when he grabs you, he's always placed 1.15 m in front of you on a clear spot with no wall between. This keeps his face in view and the camera steady.
@@ -142,7 +142,7 @@ Other visual pieces:
 | Search | Sniffs and looks around where he lost you. |
 | Check | Opens hiding spots, favouring ones you've used. If you're inside and not holding your breath, he finds you. |
 | Hunt | Fast (3.3 m/s, you run at 4.3). Tracks you while you're moving within 7 m. Freeze, creep or hide to break the trail. |
-| Grab | Holds you; you mash A/D to break free. |
+| Grab | Holds you; tap A and D in turn to break free (4.6 s; about 4.3 taps a second is enough). |
 | Stunned | 2 s after you break free: he staggers and clutches his head. |
 
 Systems that keep him a threat:
@@ -217,6 +217,10 @@ In a full-night bot test, a player pressing 3.2 keys a second and singing at 65%
   - tape cassette;
   - FPS counter;
   - "Click to continue" layer.
+- **Death screen** says what gave you away ("He heard you running...", "You breathed while he checked your hiding spot..."), plus a tip.
+- **Evidence** chimes softly when your sound lights it up; the first time, a hint explains it.
+- **Documents** fit the window, and scroll with a "Scroll for more" cue on small screens.
+- **HUD lanes:** prompt under the crosshair, tutorial hints at the top, breath bar by the noise meter, subtitles at the bottom, so nothing overlaps.
 - **Look:** dark analog horror. Fonts: IM Fell English, IBM Plex Mono, Special Elite, Reenie Beanie, Homemade Apple, VT323. No emoji, no glass panels, no rounded app buttons.
 - **Controls** are rebindable. Gameplay code asks for *actions* (`interact`, `knock`, `breath`...), never raw keys. Ctrl is avoided as a default because Ctrl+W closes the browser tab.
 - **Settings:**

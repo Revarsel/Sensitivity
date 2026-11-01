@@ -21,6 +21,10 @@ import { loadSettings, saveSettings, loadSave, writeSave, QUALITY, VOLUME_SCALE,
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 // seconds after breaking free during which a second grab is fatal (he is stunned for the first 2)
 const RECATCH_WINDOW = 45;
+// Breaking free when he grabs you: STRUGGLE_TIME seconds; each correct tap adds STRUGGLE_TAP and
+// progress drains STRUGGLE_DRAIN per second. About 4.3 alternating taps a second escapes (it used
+// to need ~6.5 in 3.4 s, which was too much).
+const STRUGGLE_TIME = 4.6, STRUGGLE_TAP = 0.09, STRUGGLE_DRAIN = 0.14;
 // how far in front of you he holds you when he grabs (his face fits the view)
 const GRAB_DIST = 1.15;
 // strength of the faint glow around the player (RevealMaterial near-field, 3 m)
@@ -114,7 +118,9 @@ export class Game {
 
     this.applySettings();
     this.resize();
-    window.addEventListener('resize', () => this.resize());
+    window.addEventListener('resize', () => { this.resize(); if (this.docOpen) this.ui.fitDoc(); });
+    // a captured mouse sends the wheel to the canvas, so scroll an open document by hand
+    window.addEventListener('wheel', (e) => { if (this.docOpen) this.ui.scrollDoc(e.deltaY); }, { passive: true });
     window.addEventListener('keydown', (e) => this.onKey(e));
     // safety net: ask before closing the tab mid-game (e.g. Ctrl+W)
     window.addEventListener('beforeunload', (e) => {
@@ -431,6 +437,8 @@ export class Game {
     }
     if (this.docOpen) {
       if (this.input.is('interact', k)) { this.closeDoc(); return; }
+      if (this.input.is('forward', k) || k === 'ArrowUp') { this.ui.scrollDoc(-90); return; }
+      if (this.input.is('back', k) || k === 'ArrowDown') { this.ui.scrollDoc(90); return; }
       if (this.input.is('transcript', k)) { this.ui.toggleTranscript(); this.audio.play('paper', { gain: 0.4, bus: 'ui' }); }
       return;
     }
@@ -546,6 +554,7 @@ export class Game {
         color: o.color ?? PULSE.PLAYER, linger: o.linger, euclid: o.euclid,
         hold: o.hold, tail: o.tail,
         reveals: o.source !== 'world', // ambient house noises don't light up evidence
+        src: o.source,
       });
     }
     if (o.source === 'player') this.noiseLevel = Math.max(this.noiseLevel, Math.min(1, o.radius / 9));
@@ -740,7 +749,11 @@ export class Game {
       this.sound({ x: pl.pos.x, z: pl.pos.z, y: 1.2, radius: 7.5, strength: 0.75, speed: 9, hold: 5.5, tail: 2.5, source: 'world', kind: 'escape' });
       this.audio.play('gasp', { gain: 0.9 });
       this.ui.hint('Run.', 2200, true);
-    }, () => this.die());
+    }, () => {
+      // why: what gave you away, or that it was a second grab too soon
+      this.deathCause = canEscape ? 'struggle:' + (h.grabCause || 'step') : 'recatch';
+      this.die();
+    });
   }
 
   // the holdout has no second chance: a short, unwinnable grab, then death
@@ -756,7 +769,32 @@ export class Game {
   }
 
   startStruggle(canEscape, onWin, onLose) {
-    this.struggle = { t: 0, p: 0, next: 'A', canEscape, onWin, onLose, dur: canEscape ? 3.4 : 1.2 };
+    this.struggle = { t: 0, p: 0, next: 'A', canEscape, onWin, onLose, dur: canEscape ? STRUGGLE_TIME : 1.2 };
+  }
+
+  // One plain sentence on the death screen: what gave you away and what to do differently.
+  causeText(c) {
+    if (!c) return '';
+    const L = (a) => this.input.label(a);
+    const T = {
+      run: `He heard you running. Near him, walk or creep (${L('creep')}).`,
+      step: `He heard your footsteps. Creep (${L('creep')}) when he's close; carpet and rugs are quieter.`,
+      knock: 'He heard you knock. Knocking near him gives you away.',
+      door: `He heard a door. Hold ${L('interact')} to open doors slowly and quietly.`,
+      drawer: 'He heard you searching a drawer.',
+      gasp: 'You ran out of breath and gasped.',
+      breath: `He heard you breathing. Hold your breath (${L('breath')}) when he's close.`,
+      hide: 'He heard you climb into your hiding spot.',
+      smell: 'You stayed right next to him too long. Blind, but he can smell you.',
+      touch: 'You walked into him.',
+      hidden: `You breathed while he checked your hiding spot. Hold your breath (${L('breath')}) until he leaves.`,
+      recatch: 'He caught you again too soon. After you break free, stay away from him for 45 seconds.',
+      door_fight: 'The door gave way. Press each key the moment it appears.',
+      window: 'He got in through the window. When you hear a tap on the glass, look at it and hold the mouse.',
+      thimble: `Nobody sang to Thimble. Wind the music box (${L('lullaby')}, monitor down) before his shadow fills the wall.`,
+    };
+    if (c.startsWith('struggle:')) return `${T[c.slice(9)] || ''} And you didn't break free: tap ${L('left')} and ${L('right')} in turn, fast.`.trim();
+    return T[c] || '';
   }
 
   // Put him GRAB_DIST from the player on the side he came from (or the nearest free direction),
@@ -798,12 +836,12 @@ export class Game {
     if (s.t > 0.55 && s.canEscape) {
       this.ui.struggle(true, s.p, s.next);
       if (this.input.actHit(s.next === 'A' ? 'left' : 'right')) {
-        s.p += 0.085;
+        s.p += STRUGGLE_TAP;
         s.next = s.next === 'A' ? 'D' : 'A';
         this.player.shake = 0.5;
         this.audio.play('hush_wet', { gain: 0.25, rate: 1.4 });
       }
-      s.p = Math.max(0, s.p - dt * 0.2);
+      s.p = Math.max(0, s.p - dt * STRUGGLE_DRAIN);
     }
     this.hush.m.pose.jaw = 0.8 + Math.sin(this.time * 30) * 0.2;
     if (s.canEscape && s.p >= 1) {
@@ -821,6 +859,9 @@ export class Game {
   // reason: 'thimble' when the doll killed you (holdout)
   die(holdout = false, reason = null) {
     const pl = this.player;
+    // read the reason now (a later death or reset can't overwrite it before the screen shows)
+    const causeLine = this.causeText(reason === 'thimble' ? 'thimble' : this.deathCause);
+    this.deathCause = null;
     this.state = 'dead';
     pl.mode = 'locked';
     this.redFlash = 1;
@@ -840,7 +881,7 @@ export class Game {
         ? [['Not until morning.', 'The door was never strong enough. Neither were you.'], ['He got in.', 'In June’s room there is nowhere left to hide.']]
         : [['He heard you.', 'The humming starts again, somewhere in the house.'], ['It found you.', 'Mr. Hush is sewn shut. He never needed to see you.'], ['Too loud.', 'In this house, every sound is a confession.']];
       const [t, s] = pool[Math.floor(Math.random() * pool.length)];
-      this.ui.death(CHECKPOINTS[this.save.cp || 'start'], t, s);
+      this.ui.death(CHECKPOINTS[this.save.cp || 'start'], t, s, causeLine);
     }, 900);
   }
 
@@ -1047,8 +1088,8 @@ export class Game {
         }
       }
       pl.breathHeld = holding;
-      // tucked away and still, you can hold it longer (about 10 s against 6.5 s in the open)
-      pl.breath = holding ? Math.max(0, pl.breath - dt / (pl.mode === 'hide' ? 10 : 6.5)) : Math.min(1, pl.breath + dt / 3.5);
+      // tucked away and still, you can hold it longer (about 12 s against 6.5 s in the open)
+      pl.breath = holding ? Math.max(0, pl.breath - dt / (pl.mode === 'hide' ? 12 : 6.5)) : Math.min(1, pl.breath + dt / 3.5);
       this.ui.breath(pl.mode === 'hide' || hushClose || holding || pl.breath < 0.98, pl.breath, holding);
       this.breathT = (this.breathT || 0) - dt;
       if (hushClose && !holding && this.breathT <= 0) {
