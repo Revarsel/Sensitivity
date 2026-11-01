@@ -38,9 +38,9 @@ const HOUR_SEC = 80;
 // fight: door push speed (gap/s) and pushes needed. react: seconds to get the shutters shut.
 // rise: Thimble's agitation per second.
 const PARAMS = [
-  { interval: 6.5, aggr: 0.45, delay: 6.2, push: 0.33, need: 8, react: 2.5, rise: 0.0105 },
-  { interval: 5.0, aggr: 0.6, delay: 5.0, push: 0.35, need: 10, react: 2.1, rise: 0.0135 },
-  { interval: 4.0, aggr: 0.76, delay: 4.0, push: 0.37, need: 12, react: 1.75, rise: 0.017 },
+  { interval: 6.5, aggr: 0.45, delay: 6.2, push: 0.26, need: 5, react: 2.5, rise: 0.0105 },
+  { interval: 5.0, aggr: 0.6, delay: 5.0, push: 0.29, need: 6, react: 2.1, rise: 0.0135 },
+  { interval: 4.0, aggr: 0.76, delay: 4.0, push: 0.32, need: 7, react: 1.75, rise: 0.017 },
 ];
 const FIGHT_KEYS = ['forward', 'left', 'back', 'right']; // W A S D by default (rebindable)
 const PUSH_BACK = 0.07, WRONG_KEY = 0.05, WINDOW_HOLD = 2.4;
@@ -448,19 +448,18 @@ export class Holdout {
     if (this.monitorUp) this.toggleMonitor();
     this.holding = null;
     this.mode = 'doorFight';
-    this.fight = { o: 0.14, prog: 0, need: p.need, push: p.push, key: null, cueT: 0, wrong: 0 };
-    this.nextFightKey();
+    // the whole sequence is shown up front, in order, so you can read ahead
+    const seq = [];
+    for (let i = 0; i < p.need; i++) {
+      const opts = FIGHT_KEYS.filter((k) => k !== seq[i - 1]);
+      seq.push(opts[Math.floor(Math.random() * opts.length)]);
+    }
+    this.fight = { o: 0.14, prog: 0, need: p.need, push: p.push, seq, i: 0, key: seq[0], id: this.time, cueT: 0, wrong: 0 };
     g.player.forcedLook = { x: 12.0, y: 1.15, z: 5.0, speed: 7 };
     g.audio.play('door_creak_fast', { pos: { x: 12, y: 1.1, z: 5.0 }, gain: 0.9, rate: 0.7 });
     g.audio.play('hush_growl', { pos: h.headPos, gain: 0.8 });
     g.player.shake = 0.6;
     g.ui.setPrompt(null);
-  }
-
-  nextFightKey() {
-    const F = this.fight, opts = FIGHT_KEYS.filter((k) => k !== F.key);
-    F.key = opts[Math.floor(Math.random() * opts.length)];
-    F.keyAt = this.time;
   }
 
   updateDoorFight(dt) {
@@ -470,8 +469,9 @@ export class Holdout {
       if (!input.actHit(act)) continue;
       if (act === F.key) {
         F.o = Math.max(0, F.o - PUSH_BACK);
-        F.prog += 1 / F.need;
-        this.nextFightKey();
+        F.i++;
+        F.prog = F.i / F.need;
+        F.key = F.seq[F.i];
         g.audio.play('block_hit', { pos: { x: 12, y: 1.1, z: 5.0 }, gain: 0.5, rate: 0.6 + Math.random() * 0.2 });
         g.player.shake = Math.max(g.player.shake, 0.25);
       } else {
@@ -493,7 +493,7 @@ export class Holdout {
       g.audio.play('creak_floor', { pos: { x: 12, y: 1.0, z: 5.1 }, gain: 0.5, rate: 0.7 + F.o * 0.4 });
       g.sound({ x: 12.0, z: 5.3, y: 1.2, radius: 1.6 + F.o * 2.2, strength: 0.6 + F.o * 0.5, color: PULSE.HUSH, source: 'hush', speed: 8 });
     }
-    g.ui.doorFight(true, { key: g.input.label(F.key), keyAt: F.keyAt, gap: Math.min(1, F.o), prog: F.prog, wrong: F.wrong > 0 });
+    g.ui.doorFight(true, { id: F.id, keys: F.seq.map((a) => g.input.label(a)), i: F.i, gap: Math.min(1, F.o), wrong: F.wrong > 0 });
     if (F.prog >= 1) this.winDoorFight();
     else if (F.o >= 1) this.loseDoorFight();
   }

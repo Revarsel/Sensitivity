@@ -129,7 +129,7 @@ export class Game {
       if (!this.dev && ['play', 'holdout', 'cutscene'].includes(this.state)) { e.preventDefault(); e.returnValue = ''; }
     });
     window.addEventListener('mousemove', (e) => this.onMenuMouse(e));
-    window.addEventListener('wheel', (e) => { if (this.docOpen) this.ui.scrollDoc(e.deltaY); }, { passive: true });
+    window.addEventListener('mousedown', (e) => this.onMenuClick(e));
     this.timer = new THREE.Timer();
     this.setupMenuWorld();
     this.prewarmGPU();
@@ -321,6 +321,26 @@ export class Game {
     const p = t > 0 && t < 12 ? ray.ray.at(t, new THREE.Vector3()) : ray.ray.at(4, new THREE.Vector3());
     p.x = Math.max(0.3, Math.min(6.3, p.x)); p.z = Math.max(7.2, Math.min(13.8, p.z));
     this.sound({ x: p.x, y: 0.05, z: p.z, radius: 1.6 + Math.random(), strength: 0.45, source: 'world', speed: 5, color: PULSE.PLAYER });
+  }
+
+  // A click on the menu's empty space is a knock in the room: it lights up where you clicked,
+  // and he turns his head toward it in his sleep (menu sounds never wake him: source 'world').
+  onMenuClick(e) {
+    if (this.state !== 'menu' || this.sheet || e.button !== 0) return;
+    if (e.target.closest && e.target.closest('button, a, input, select, label, .sheet')) return;
+    const now = performance.now();
+    if (now - (this.lastMenuClick || 0) < 300) return;
+    this.lastMenuClick = now;
+    const ndc = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+    const ray = new THREE.Raycaster(undefined, undefined, 0.1, 16);
+    ray.setFromCamera(ndc, this.camera);
+    const hit = ray.intersectObjects(this.house.meshes, false)[0];
+    const p = hit ? hit.point : ray.ray.at(5, new THREE.Vector3());
+    this.audio.play('knock', { pos: { x: p.x, y: p.y, z: p.z }, gain: 0.65, jitter: 0.12 });
+    this.sound({ x: p.x, y: p.y, z: p.z, radius: hit ? 4.6 : 3.2, strength: 0.85, source: 'world', color: PULSE.PLAYER, speed: 9 });
+    this.lastMenuPulse = now; // no hover ripple right on top of it
+    const h = this.hush;
+    if (Math.hypot(p.x - h.x, p.z - h.z) < 6) h.lookTarget = Math.atan2(p.x - h.x, p.z - h.z) - h.heading;
   }
 
   // ================================================================ sheets

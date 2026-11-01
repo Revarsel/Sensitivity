@@ -137,6 +137,7 @@ export class Interactions {
         if (this.holdT > 0.22 && !this.doorHold && !d.locked) {
           this.doorHold = { door: d, open: d.isClosed || d.target < d.maxOpen * 0.5, t: 0 };
           d.setTarget(this.doorHold.open, 0.55, pl.pos.x, pl.pos.z);
+          if (!this.doorHold.open) this.shutting(d);
           g.audio.play('door_creak_slow', { pos: { x: d.hinge.x, y: 1.2, z: d.hinge.y }, gain: 0.35 });
           g.sound({ x: d.center().x, z: d.center().z, y: 1, soft: true, radius: 2.3, strength: 0.7, source: 'player', kind: 'door' });
         }
@@ -186,6 +187,7 @@ export class Interactions {
     const d = this.doorHold.door;
     d.target = d.angle;
     d.moving = false;
+    d.bumpAt = null; d.onBump = null;
     this.doorHold = null;
   }
 
@@ -196,14 +198,38 @@ export class Interactions {
     const c = d.center();
     g.audio.play('door_creak_fast', { pos: { x: c.x, y: 1.2, z: c.z }, gain: 0.9 });
     if (!opening) {
-      setTimeout(() => {
-        g.audio.play('door_slam', { pos: { x: c.x, y: 1.2, z: c.z }, gain: 0.9 });
-        g.sound({ x: c.x, z: c.z, y: 1, radius: 8.5, strength: 1, source: 'player', kind: 'door' });
-      }, 330);
+      if (!this.shutting(d)) {
+        setTimeout(() => {
+          if (d.target !== 0) return; // bounced off him instead
+          g.audio.play('door_slam', { pos: { x: c.x, y: 1.2, z: c.z }, gain: 0.9 });
+          g.sound({ x: c.x, z: c.z, y: 1, radius: 8.5, strength: 1, source: 'player', kind: 'door' });
+        }, 330);
+      }
     } else {
       g.sound({ x: c.x, z: c.z, y: 1, radius: 6.5, strength: 1, source: 'player', kind: 'door' });
     }
     g.chapter?.onDoorToggled?.(d, opening);
+  }
+
+  // The player is shutting door d. Remember when it will be shut (Mr. Hush waits a beat before
+  // shoving it back open), and if he is standing in its swing it hits him and bounces back.
+  // Returns true when it will bounce.
+  shutting(d) {
+    const g = this.g, h = g.hush;
+    d.shutAt = g.time + d.angle / Math.max(0.1, d.speed);
+    if (!h || h.state === 'dormant' || h.m.pose.sit > 0.05) return false;
+    const hit = d.sweepHit(h.x, h.z, 0.42);
+    if (hit === null) return false;
+    d.bumpAt = hit;
+    d.onBump = () => {
+      const c = d.center();
+      d.shutAt = null;
+      g.audio.play('block_hit', { pos: { x: c.x, y: 1.1, z: c.z }, gain: 1, rate: 0.45 });
+      g.audio.play('boom', { pos: { x: c.x, y: 1.1, z: c.z }, gain: 0.3 });
+      g.sound({ x: c.x, z: c.z, y: 1, radius: 5.5, strength: 0.9, source: 'player', kind: 'door' });
+      g.player.shake = Math.max(g.player.shake, 0.3);
+    };
+    return true;
   }
 
   locked(d) {

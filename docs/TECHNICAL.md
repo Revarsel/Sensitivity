@@ -7,7 +7,7 @@ Related docs:
 - `docs/LORE.md`: the story.
 - `docs/CHAPTER_1_PLAN.md`: the Chapter 1 design.
 
-*Last updated: Chapter 1 complete, with the holdout rework (door fight, window, Thimble), Mr. Hush's clipping fixes, click-to-interact, the new jumpscare and the sunrise.*
+*Last updated: Chapter 1 complete, with the holdout rework (door fight, window, Thimble), Mr. Hush's clipping fixes, click-to-interact, the new jumpscare, the sunrise, the easier door fight, and doors that behave when you shut them on him.*
 
 ---
 
@@ -173,7 +173,7 @@ A FNAF-style finale in June's room. You sit; you can look around but can't walk.
 
 - **Mr. Hush** moves along a graph of rooms (living room, foyer, kitchen, hallway, June's door, the back door, the yard and June's window). Each hour he moves more often and attacks sooner.
 - **Baby monitor (Space, then 1/2/3):** night-vision feeds of three rooms. It drains battery while raised and shows static when he's near the camera. **L with the monitor up** plays the lullaby in that room to lure him there.
-- **The door:** it starts closed. After a warning (sniffing, scratching, the handle) he forces it. The camera turns to the door and **one key (W/A/S/D) pops up at a time**: the right key pushes it back, a wrong one lets him in further. Win and the door slams; he bangs on it 3–5 times and leaves. Bot-tuned: you need about 2, 2.5 and 3 correct presses a second at 3, 4 and 5 AM.
+- **The door:** it starts closed. After a warning (sniffing, scratching, the handle) he forces it. The camera turns to the door and **the whole key sequence (W/A/S/D) is shown in order**, so you can read ahead: 5 keys at 3 AM, 6 at 4 AM, 7 at 5 AM. The right key pushes the door back, a wrong one lets him in further; a thick red bar shows how far open it is. Win and the door slams; he bangs on it 3–5 times and leaves. Bot-tuned: you need about 1.3, 1.7 and 2.1 correct presses a second at 3, 4 and 5 AM. During the holdout only this script moves June's door; his ordinary door opening leaves it alone.
 - **The window:** a faint tap is the only warning. Then you have 2.5 s (1.75 s by 5 AM) to look at it and hold the mouse to shut the shutters, and you must keep holding for 2.4 s while he tries them. His first window visit each night is gentler: a louder tap, June calling "Ellis… I'm at the window.", and 4 s to react.
 - **Thimble:** the doll's agitation rises all night. You see it in his **shadow growing up the wall**, the chair rocking harder, and a slow heartbeat thud from the chair that speeds up (each beat throws a red pulse that lights his shadow). **L with the monitor down** winds the music box and calms him, but it's Mr. Hush's song, so it draws him to June's room for 16 s. At full agitation Thimble kills you.
 - **Dawn:** he walks back to his chair while the room warms through a 7-second sunrise; birds start, and the last tape is in the monitor.
@@ -184,7 +184,7 @@ In a full-night bot test, a player pressing 3.2 keys a second and singing at 65%
 
 ## 10. Stages, flow and saving
 
-- **Game states:** boot → menu (a live scene of Mr. Hush in his chair, outlined by a faint red pulse every few seconds as if he breathes) → prologue → play ⇄ cutscene → holdout → (dawn) play → end; and dead. Pause, documents and menus are overlays.
+- **Game states:** boot → menu (a live scene of Mr. Hush in his chair, outlined by a faint red pulse every few seconds as if he breathes; clicking anywhere in the room knocks there and lights it up, and his sleeping head turns toward it) → prologue → play ⇄ cutscene → holdout → (dawn) play → end; and dead. Pause, documents and menus are overlays.
 - **Chapter 1 flow:**
   1. The foyer. Find June's room.
   2. Find the key in Diane's nightstand, which wakes him.
@@ -197,6 +197,7 @@ In a full-night bot test, a player pressing 3.2 keys a second and singing at 65%
 - **Checkpoints:** the foyer, Diane's bedroom, the kitchen, and June's room at 3:00 AM. Dying restarts from the last one.
 - **Timed story beats** run on the game's own clock (`chapter.at`), so they pause with the game and stay in sync with test simulations.
 - **The house remembers:** open doors, thrown objects and broken glass stay as you left them, and he investigates the disturbances.
+- **Doors and him:** he only opens doors he is walking through. Slam one in his face and he stops, sniffs for about half a second, then shoves it open with a bang; that buys you a moment. Shut one while he's standing in the doorway and it hits him and bounces back open.
 - **Objectives** are always on screen; a new one shows large for 7 s, then settles small. An **inventory** on the right shows what you carry (key, batteries).
 - **Evidence:** 17 documents and tapes. An item stays dark until a sound you make reaches it, then glows for 4.5 s and fades. Read it in an overlay, or play tapes as subtitles while you keep moving. Tab opens the evidence screen.
 - **Saving:** browser localStorage holds settings and progress (checkpoint plus evidence found). Settings have a migration counter for changed defaults.

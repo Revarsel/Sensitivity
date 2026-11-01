@@ -4,6 +4,7 @@ import { resolveCircle } from '../core/Collision.js';
 // keep his body out of walls and furniture (a safety net: the nav grid already keeps paths clear).
 // Radii stay inside the nav margins so the two never fight. Low furniture only needs his legs' width.
 const BODY_R = 0.46, LEGS_R = 0.3, LOW_Y = 1.05;
+const DOOR_WAIT = 0.7; // seconds he waits after a door is shut on him, before shoving it open
 // hiding-spot checks: how long he stands at the spot (longer if he heard you get in)
 const CHECK_TIME = 2.6, HEARD_CHECK = 3.6;
 const CLEARED_FOR = 30; // seconds a spot he found empty stays off his list
@@ -40,6 +41,7 @@ export class MrHush {
     this.disturbances = [];
     this.hideMemory = {};
     this.clearedAt = {}; // spot id -> time he last found it empty
+    this.doorIds = []; this.doorWait = null; // doors on his way (openDoors)
     this.heardEnter = null;
     this.searchFrom = null;
     this.awareness = 0;
@@ -392,11 +394,11 @@ export class MrHush {
     // doorways: squash and stoop through them (doors are 0.92 x 2.1 m, he is not). Only for a
     // doorway he is actually going through: on his next path legs, or the one he's standing in.
     const nav = g.nav, f = g.house.field;
-    let dDoor = 9;
+    let dDoor = 9, d1 = null;
     const pa = this.path, k = this.pathI;
     if (pa && k < pa.length) {
       // look up to three legs ahead, so the stoop starts before his head reaches the wall
-      let ax = this.x, az = this.z, d1 = null;
+      let ax = this.x, az = this.z;
       for (let j = k; j < Math.min(pa.length, k + 3) && !d1; j++) {
         d1 = nav.doorOn(ax, az, pa[j][0], pa[j][1]);
         ax = pa[j][0]; az = pa[j][1];
@@ -404,6 +406,7 @@ export class MrHush {
       if (d1) dDoor = Math.hypot(d1.x - this.x, d1.z - this.z);
     }
     const inDoor = nav.doorById[f.door[f.index(this.x, this.z)]];
+    this.doorIds = [d1 ? d1.id : -1, inDoor ? inDoor.id : -1]; // doors he is going through (openDoors)
     if (inDoor) dDoor = Math.min(dDoor, Math.hypot(inDoor.x - this.x, inDoor.z - this.z));
     // full squeeze and stoop from 1 m out, starting at 2 m (he leans forward, so his head reaches the wall first)
     const sqT = P.sit > 0.05 ? 0 : 1 - Math.min(1, Math.max(0, (dDoor - 1.0) / 1.0));
@@ -482,17 +485,38 @@ export class MrHush {
     return false;
   }
 
+  // He opens a door only when he is going through it (on his next path legs, or standing in it),
+  // never one he is just walking past. The holdout scripts June's door itself.
+  // If you have just shut it in his face he stops, waits a beat, then shoves it open.
   openDoors() {
-    for (const d of this.g.house.doors) {
-      if (!d.isClosed || d.moving) continue;
+    const g = this.g, prev = this.doorWait;
+    this.doorWait = null;
+    for (const d of g.house.doors) {
+      if (!d.hushCanOpen || !this.doorIds.includes(d.id)) continue;
+      if (this.state === 'holdout' && d === g.house.doorJune) continue;
       if (d.locked && !(d.hushOnly)) continue;
       const c = d.center();
-      if (Math.hypot(c.x - this.x, c.z - this.z) < 1.1) {
-        d.setTarget(true, 3.2);
-        this.g.audio.play('door_creak_fast', { pos: { x: c.x, y: 1.2, z: c.z }, gain: 1 });
-        this.g.audio.play('door_latch', { pos: { x: c.x, y: 1.0, z: c.z }, gain: 0.8 });
-        this.g.sound({ x: c.x, z: c.z, radius: 5, source: 'hush', color: PULSE.HUSH, strength: 0.9 });
+      if (Math.hypot(c.x - this.x, c.z - this.z) >= 1.1) continue;
+      const closing = d.moving && d.target < d.angle;
+      if (closing && d.bumpAt == null) { this.doorWait = d; continue; } // being shut in front of him
+      if (!d.isClosed || d.moving) continue;
+      const since = d.shutAt == null ? 1e9 : g.time - d.shutAt;
+      if (since < DOOR_WAIT) { if (prev !== d) this.sniff(0.5); this.doorWait = d; continue; }
+      if (since < 4) {
+        // shoved open: fast, loud, it bangs off the stop
+        d.setTarget(true, 6.5, this.x, this.z);
+        g.audio.play('door_slam', { pos: { x: c.x, y: 1.2, z: c.z }, gain: 1, rate: 0.8 });
+        g.audio.play('boom', { pos: { x: c.x, y: 1.2, z: c.z }, gain: 0.45 });
+        g.sound({ x: c.x, z: c.z, radius: 7, source: 'hush', color: PULSE.HUSH, strength: 1 });
+        const pl = g.player;
+        if (Math.hypot(pl.pos.x - c.x, pl.pos.z - c.z) < 3.5) pl.shake = Math.max(pl.shake, 0.4);
+      } else {
+        d.setTarget(true, 3.2, this.x, this.z);
+        g.audio.play('door_creak_fast', { pos: { x: c.x, y: 1.2, z: c.z }, gain: 1 });
+        g.audio.play('door_latch', { pos: { x: c.x, y: 1.0, z: c.z }, gain: 0.8 });
+        g.sound({ x: c.x, z: c.z, radius: 5, source: 'hush', color: PULSE.HUSH, strength: 0.9 });
       }
+      d.shutAt = null;
     }
   }
 
@@ -564,6 +588,7 @@ export class MrHush {
       if (np) { this.path = np; this.pathI = 0; }
     }
     if (!this.path || this.pathI >= this.path.length) return true;
+    if (this.doorWait) return false; // a door was just shut in his face (openDoors)
     const [tx, tz] = this.path[this.pathI];
     const dx = tx - this.x, dz = tz - this.z;
     const d = Math.hypot(dx, dz);
@@ -631,6 +656,7 @@ export class MrHush {
     this.disturbances = [];
     this.hideMemory = {};
     this.clearedAt = {}; // spot id -> time he last found it empty
+    this.doorIds = []; this.doorWait = null;
     this.heardEnter = null;
     this.checkPhase = 0;
     this.awareness = 0;

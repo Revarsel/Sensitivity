@@ -144,7 +144,7 @@ The player sits on the floor of June's room. They can look around but can't walk
 |---|---|---|
 | **Baby monitor** (Space, keys 1–3) | Night-vision feeds of the **Hallway**, **Living room** and **Kitchen** | Drains battery while raised. You can't watch the door or window. |
 | **Talk-back lullaby** (L on the monitor) | Plays a lullaby through that room's monitor and lures him there | Large battery cost. Doesn't work if he's already at a threshold. |
-| **Bedroom door** (W A S D, prompted) | The door starts closed. After a warning he forces it open; push back with the key that pops up. Win and it slams shut while he bangs on it, then leaves. | Wrong keys let him in further. Harder each hour. |
+| **Bedroom door** (W A S D, prompted) | The door starts closed. After a warning he forces it open; push back by pressing the keys shown, in order (5, 6 and 7 keys at 3, 4 and 5 AM). Win and it slams shut while he bangs on it, then leaves. | Wrong keys let him in further. Harder each hour. |
 | **Window shutters** (look + hold mouse) | He appears at the window with almost no warning: about 2 seconds to get the shutters shut, then hold them while he tries them | You can't use the monitor while holding |
 | **June's music box** (L, monitor down) | Calms **Thimble**, the porcelain doll in the rocking chair | It is Mr. Hush's song: it brings him straight to June's room |
 

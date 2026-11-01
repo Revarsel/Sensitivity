@@ -65,7 +65,7 @@ A critical pass over Chapter 1. I went through the game in order (boot, menu, pr
    The note on her door helps, once you're there. (S–M)
 10. **L means two things in the holdout:** with the monitor up it lures him *away*; with it down it plays the music box that draws him *in*.
     *Fix:* give the music box its own key (e.g. M, rebindable), and show both on the pause controls list. (S)
-11. **The door-fight bars are hard to read:** the danger gap bar is a 3 px line under the key.
+11. **[Done] The door-fight bars are hard to read:** the danger gap bar is a 3 px line under the key. (Now: the whole key sequence in order, a 6 px bar with a caption, and fewer presses.)
     *Fix:* a thicker bar, or show the door's opening as an arc or meter around the key; flash red as it nears breaking. (S)
 12. **Thimble's state is hard to judge when you're looking elsewhere.** The heartbeat thud is the only cue.
     *Fix:* keep the thud, but also let his red pulses reach the edge of your view (a faint red flicker at the screen edge on his side). Make the shadow catch the nightlight too, not only his own beats. (S–M)
@@ -76,7 +76,7 @@ A critical pass over Chapter 1. I went through the game in order (boot, menu, pr
 
 ## 3. Gameplay and pacing
 
-15. **No difficulty setting.** Friends who aren't horror veterans will hit walls (the 5 AM door needs ~3 correct presses a second; the window gives 1.75 s).
+15. **No difficulty setting.** Friends who aren't horror veterans will hit walls (the 5 AM door needed ~3 correct presses a second, now ~2.1 with the sequence shown; the window gives 1.75 s).
     *Fix:* Story / Normal / Hard. These would scale his hearing radius, holdout timings (react time, door push, Thimble's rise), the re-catch window, and breath capacity. (M)
 16. **[Done] Window difficulty spike.** A faint tap is the only warning and the first visit already gives just 2.5 s.
     *Fix:* make the *first* window visit each night slower (4 s), with a clearer tell (wet hand smear, a louder first tap, June's voice starting before he arrives). (S)

@@ -635,7 +635,7 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 #struggle .bar { width: 280px; height: 2px; background: rgba(216, 209, 194, 0.15); margin: 0 auto; position: relative; }
 #struggle .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--blood); width: 0; }
 
-/* holdout door fight: the key to press pops up; red bar = how far open the door is */
+/* holdout door fight: the whole key sequence, in order; red bar = how far open the door is */
 #doorfight {
   position: absolute; left: 50%; top: 62%;
   transform: translate(-50%, -50%);
@@ -644,14 +644,16 @@ input[type=range].slider:hover::-webkit-slider-thumb { background: var(--blood);
 }
 #doorfight.on { opacity: 1; animation: shake 0.14s linear infinite; }
 #doorfight .t { font-family: var(--serif); font-size: 40px; color: var(--bone); text-shadow: 0 0 24px #000; }
-#doorfight kbd { display: inline-grid; place-items: center; width: 64px; height: 64px; margin: 16px 0 18px; font-size: 22px; border-color: var(--bone); }
-#doorfight kbd.pop { animation: keypop 0.18s cubic-bezier(.2,.9,.3,1.4); }
+#doorfight .seq { display: flex; gap: 10px; justify-content: center; align-items: center; margin: 16px 0 18px; height: 64px; }
+#doorfight .seq kbd { display: inline-grid; place-items: center; width: 40px; height: 40px; margin: 0; font-size: 15px; opacity: 0.75; background: rgba(6, 5, 5, 0.82); box-shadow: 0 0 14px rgba(0, 0, 0, 0.9); transition: opacity 0.12s, width 0.1s, height 0.1s; }
+#doorfight .seq kbd.cur { width: 60px; height: 60px; font-size: 22px; opacity: 1; border-color: var(--bone); }
+#doorfight .seq kbd.done { opacity: 0.2; }
+#doorfight .seq kbd.pop { animation: keypop 0.18s cubic-bezier(.2,.9,.3,1.4); }
 @keyframes keypop { 0% { transform: scale(0.55); opacity: 0.3; } 100% { transform: scale(1); opacity: 1; } }
-#doorfight.wrong kbd { border-color: var(--blood); background: rgba(142, 27, 22, 0.45); }
-#doorfight .bar { width: 300px; height: 3px; background: rgba(216, 209, 194, 0.15); margin: 0 auto; position: relative; }
+#doorfight.wrong .seq kbd.cur { border-color: var(--blood); background: rgba(142, 27, 22, 0.45); }
+#doorfight .bar { width: 320px; height: 6px; background: rgba(216, 209, 194, 0.15); margin: 0 auto; position: relative; }
 #doorfight .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--blood); width: 0; transition: width 0.08s linear; }
-#doorfight .pips { width: 300px; height: 1px; margin: 8px auto 0; background: rgba(216, 209, 194, 0.12); position: relative; }
-#doorfight .pips i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bone); width: 0; }
+#doorfight .cap { margin-top: 8px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(216, 209, 194, 0.7); text-shadow: 0 0 6px #000, 0 0 12px #000; }
 
 #clock {
   position: absolute;

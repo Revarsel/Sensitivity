@@ -90,12 +90,38 @@ export class Door {
     this.target = open ? this.maxOpen : 0;
     this.speed = speed;
     this.moving = true;
+    this.bumpAt = null; this.onBump = null;
+  }
+
+  // The first angle, swinging from `from` toward `to`, at which the panel touches the circle
+  // (x, z, r): a body standing in its way. null if the swing is clear.
+  sweepHit(x, z, r, from = this.angle, to = 0) {
+    const n = Math.max(2, Math.ceil(Math.abs(to - from) / 0.05));
+    const rx = x - this.hinge.x, rz = z - this.hinge.y;
+    for (let k = 1; k <= n; k++) {
+      const rot = this.baseRot + this.openSign * (from + (to - from) * k / n);
+      const ux = Math.cos(rot), uz = -Math.sin(rot);
+      const t = Math.max(0, Math.min(this.width, rx * ux + rz * uz));
+      if (Math.hypot(rx - ux * t, rz - uz * t) < r) return from + (to - from) * (k - 1) / n;
+    }
+    return null;
   }
 
   update(dt) {
     if (!this.moving) return false;
     const d = this.target - this.angle;
     const step = this.speed * dt;
+    // shut on something in the way: it stops there and bounces back open a little (see Interactions)
+    if (this.bumpAt != null && d < 0 && this.angle - step <= this.bumpAt) {
+      this.angle = Math.max(0, this.bumpAt);
+      this.target = Math.min(this.maxOpen, this.angle + 0.6);
+      this.speed = 2.6;
+      const cb = this.onBump;
+      this.bumpAt = null; this.onBump = null;
+      this._apply();
+      if (cb) cb();
+      return true;
+    }
     if (Math.abs(d) <= step) { this.angle = this.target; this.moving = false; }
     else this.angle += Math.sign(d) * step;
     this._apply();
